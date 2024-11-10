@@ -136,6 +136,9 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Editor\Menu UI\OptionsComponent.cs" />
+    <Compile Include="Editor\Menu UI\Framework_UIManager.cs" />
+    <Compile Include="Editor\TNHBaseManager.cs" />
     <Compile Include="Main\AsyncLoadMonitor.cs" />
     <Compile Include="Main\ObjectWrappers\SosigLinkLootWrapper.cs" />
     <Compile Include="Main\Patches\DebugPatches.cs" />
@@ -145,9 +148,11 @@
     <Compile Include="Main\Patches\TNHPatches.cs" />
     <Compile Include="Main\TemplateLoadersLegacy.cs" />
     <Compile Include="Main\TNHMenuInitializer.cs" />
+    <Compile Include="Managers\Sandbox.cs" />
     <Compile Include="ObjectTemplates\CharacterEnums.cs" />
     <Compile Include="ObjectTemplates\CustomCharacter.cs" />
     <Compile Include="ObjectTemplates\HoldStats.cs" />
+    <Compile Include="ObjectTemplates\BaseManager.cs" />
     <Compile Include="ObjectTemplates\MapData.cs" />
     <Compile Include="ObjectTemplates\Old\CustomCharacterV1.cs" />
     <Compile Include="ObjectTemplates\ScoreEntry.cs" />
@@ -171,7 +176,6 @@
     <None Include="Schemas\CustomCharacterSchema.json" />
     <None Include="Schemas\SosigTemplate.json" />
   </ItemGroup>
-  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- This target copies dll to the folder, for quicker debbugging -->
   <Target Name="CopyDll" AfterTargets="AfterBuild" Condition="'$(ProfileString)' != '' ">

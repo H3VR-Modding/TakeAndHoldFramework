@@ -16,7 +16,7 @@ namespace TNHFramework.Patches
         [HarmonyPrefix]
         public static bool NextPhasePatch(TNH_HoldPoint __instance)
         {
-            CustomCharacter character = LoadedTemplateManager.LoadedCharactersDict[__instance.M.C];
+            TakeAndHoldCharacter character = LoadedTemplateManager.LoadedCharactersDict[__instance.M.C];
             if (character.GetCurrentLevel(__instance.M.m_curLevel).HoldPhases[__instance.m_phaseIndex].DespawnBetweenWaves)
             {
                 __instance.DeletionBurst();

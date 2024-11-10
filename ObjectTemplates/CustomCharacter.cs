@@ -10,13 +10,18 @@ using Valve.Newtonsoft.Json;
 
 namespace TNHFramework.ObjectTemplates
 {
-    public class CustomCharacter
+    public abstract class BaseCustomCharacter
     {
+        // Generic data for interacting with TNH Framework.
+        public string ManagerType;
         public string DisplayName;
         public string Description;
         public CategoryInfo CategoryData;
-        // public int CharacterGroup;
         public string TableID;
+    }
+
+    public class TakeAndHoldCharacter : BaseCustomCharacter
+    {
         public int StartingTokens;
         public bool ForceAllAgentWeapons;
         public bool ForceDisableOutfitFunctionality;
@@ -47,7 +52,7 @@ namespace TNHFramework.ObjectTemplates
         private Dictionary<string, MagazineBlacklistEntry> magazineBlacklistDict;
 
 
-        public CustomCharacter()
+        public TakeAndHoldCharacter()
         {
             ValidAmmoEras = [];
             ValidAmmoSets = [];
@@ -67,29 +72,10 @@ namespace TNHFramework.ObjectTemplates
             LevelsEndless = [];
         }
 
-        public CustomCharacter(TNH_CharacterDef character)
+        public TakeAndHoldCharacter(TNH_CharacterDef character)
         {
+            ManagerType = "Classic";
             DisplayName = character.DisplayName;
-            CategoryData = new CategoryInfo();
-            switch (character.Group)
-            {
-                case TNH_CharacterDef.CharacterGroup.DaringDefaults:
-                    CategoryData.Name = "Daring Defaults";
-                    break;
-
-                case TNH_CharacterDef.CharacterGroup.WienersThroughTime:
-                    CategoryData.Name = "Wieners Through Time";
-                    break;
-
-                case TNH_CharacterDef.CharacterGroup.MemetasticMeats:
-                    CategoryData.Name = "Memetastic Meats";
-                    break;
-
-                case TNH_CharacterDef.CharacterGroup.Competitive:
-                    CategoryData.Name = "Competitive Casings";
-                    break;
-            }
-            CategoryData.Priority = (int)character.Group;
 
             // CharacterGroup = (int)character.Group;
             TableID = character.TableID;
@@ -121,7 +107,7 @@ namespace TNHFramework.ObjectTemplates
             this.character = character;
         }
 
-        public CustomCharacter(V1.CustomCharacter character)
+        public TakeAndHoldCharacter(V1.CustomCharacter character)
         {
             DisplayName = character.DisplayName;
             Description = character.Description;

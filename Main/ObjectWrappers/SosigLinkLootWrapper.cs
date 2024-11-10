@@ -13,7 +13,7 @@ namespace TNHFramework
     public class SosigLinkLootWrapper : MonoBehaviour
     {
         public TNH_Manager M;
-        public CustomCharacter character;
+        public TakeAndHoldCharacter character;
         public EquipmentGroup group;
         public bool dontDrop = false;
         public bool shouldDropOnCleanup;

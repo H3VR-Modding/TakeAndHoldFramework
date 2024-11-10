@@ -12,13 +12,13 @@ namespace TNHFramework
     public static class LoadedTemplateManager
     {
 
-        public static Dictionary<TNH_CharacterDef, CustomCharacter> LoadedCharactersDict = [];
+        public static Dictionary<TNH_CharacterDef, TakeAndHoldCharacter> LoadedCharactersDict = [];
         public static Dictionary<SosigEnemyTemplate, SosigTemplate> LoadedSosigsDict = [];
         public static Dictionary<EquipmentPoolDef.PoolEntry, EquipmentPool> EquipmentPoolDictionary = [];
         public static Dictionary<string, VaultFile> LoadedVaultFiles = [];
         public static Dictionary<string, SavedGunSerializable> LoadedLegacyVaultFiles = [];
-        public static List<CustomCharacter> CustomCharacters = [];
-        public static List<CustomCharacter> DefaultCharacters = [];
+        public static List<TakeAndHoldCharacter> CustomCharacters = [];
+        public static List<TakeAndHoldCharacter> DefaultCharacters = [];
         public static List<SosigTemplate> CustomSosigs = [];
         public static List<SosigEnemyTemplate> DefaultSosigs = [];
         public static Dictionary<string, int> SosigIDDict = [];
@@ -83,9 +83,9 @@ namespace TNHFramework
         }
 
 
-        public static void AddCharacterTemplate(CustomCharacter template, Sprite thumbnail)
+        public static void AddCharacterTemplate(TakeAndHoldCharacter template, Sprite thumbnail)
         {
-            template.Validate();
+            // template.Validate();
             CustomCharacters.Add(template);
             LoadedCharactersDict.Add(template.GetCharacter(NewCharacterID, thumbnail), template);
 
@@ -101,7 +101,7 @@ namespace TNHFramework
 
         public static void AddCharacterTemplate(TNH_CharacterDef realTemplate)
         {
-            CustomCharacter template = new CustomCharacter(realTemplate);
+            TakeAndHoldCharacter template = new TakeAndHoldCharacter(realTemplate);
 
             DefaultCharacters.Add(template);
             LoadedCharactersDict.Add(realTemplate, template);

@@ -40,8 +40,11 @@ namespace TNHFramework.Patches
         [HarmonyPrefix]
         public static bool InitTNH(TNH_Manager __instance)
         {
+            bool shouldContinue = true;
             if (!__instance.m_hasInit)
             {
+                shouldContinue = TNHFramework.currentManager.InitTNH(__instance);
+
                 __instance.CharDB.Characters = TNHMenuInitializer.SavedCharacters;
 
                 /*
@@ -56,7 +59,7 @@ namespace TNHFramework.Patches
                 */
             }
 
-            return true;
+            return shouldContinue;
         }
 
         #region Initializing TNH
@@ -99,7 +102,6 @@ namespace TNHFramework.Patches
             }
             else
             {
-                TNHMenuInitializer.RefreshTNHUI(__instance, __instance.Categories, __instance.CharDatabase);
                 magazineCacheText.text = "CACHE BUILT";
             }
 
@@ -328,7 +330,7 @@ namespace TNHFramework.Patches
                 __instance.m_trackedObjects.Add(item);
             }
 
-            CustomCharacter character = LoadedTemplateManager.LoadedCharactersDict[__instance.M.C];
+            TakeAndHoldCharacter character = LoadedTemplateManager.LoadedCharactersDict[__instance.M.C];
             if (character.PrimaryWeapon != null)
             {
                 EquipmentGroup selectedGroup = character.PrimaryWeapon.PrimaryGroup ?? character.PrimaryWeapon.BackupGroup;
@@ -449,7 +451,7 @@ namespace TNHFramework.Patches
             __instance.ResetHasGuardBeenKilledThatWasAltered();
             __instance.m_activeSupplyPointIndicies.Clear();
 
-            CustomCharacter character = LoadedTemplateManager.LoadedCharactersDict[__instance.C];
+            TakeAndHoldCharacter character = LoadedTemplateManager.LoadedCharactersDict[__instance.C];
             Level level = character.GetCurrentLevel(__instance.m_curLevel);
 
             TNHFramework.SpawnedBossIndexes.Clear();
@@ -1126,7 +1128,7 @@ namespace TNHFramework.Patches
         [HarmonyPrefix]
         public static bool IdentifyEncryptionReplacement(TNH_HoldPoint __instance)
         {
-            CustomCharacter character = LoadedTemplateManager.LoadedCharactersDict[__instance.M.C];
+            TakeAndHoldCharacter character = LoadedTemplateManager.LoadedCharactersDict[__instance.M.C];
             Phase currentPhase = character.GetCurrentPhase(__instance.m_curPhase);
 
             //If we shouldn't spawn any targets, we exit out early
@@ -1194,7 +1196,7 @@ namespace TNHFramework.Patches
 
         public static void SpawnGrenades(List<TNH_HoldPoint.AttackVector> AttackVectors, TNH_Manager M, int phaseIndex)
         {
-            CustomCharacter character = LoadedTemplateManager.LoadedCharactersDict[M.C];
+            TakeAndHoldCharacter character = LoadedTemplateManager.LoadedCharactersDict[M.C];
             Level currLevel = character.GetCurrentLevel(M.m_curLevel);
             Phase currPhase = currLevel.HoldPhases[phaseIndex];
 
@@ -1232,7 +1234,7 @@ namespace TNHFramework.Patches
             numAttackVectors = Mathf.Clamp(numAttackVectors, 1, AttackVectors.Count);
 
             //Get the custom character data
-            CustomCharacter character = LoadedTemplateManager.LoadedCharactersDict[M.C];
+            TakeAndHoldCharacter character = LoadedTemplateManager.LoadedCharactersDict[M.C];
             Level currLevel = character.GetCurrentLevel(M.m_curLevel);
             Phase currPhase = currLevel.HoldPhases[phaseIndex];
 
@@ -1348,7 +1350,7 @@ namespace TNHFramework.Patches
             if (!__instance.m_decidedTypes.ContainsKey(t))
             {
                 List<FireArmRoundClass> list = [];
-                CustomCharacter character = LoadedTemplateManager.LoadedCharactersDict[__instance.M.C];
+                TakeAndHoldCharacter character = LoadedTemplateManager.LoadedCharactersDict[__instance.M.C];
 
                 for (int i = 0; i < AM.SRoundDisplayDataDic[t].Classes.Length; i++)
                 {
@@ -1399,7 +1401,7 @@ namespace TNHFramework.Patches
             __instance.m_displayedType = t;
             __instance.m_displayedClasses.Clear();
 
-            CustomCharacter character = LoadedTemplateManager.LoadedCharactersDict[__instance.M.C];
+            TakeAndHoldCharacter character = LoadedTemplateManager.LoadedCharactersDict[__instance.M.C];
 
             for (int i = 0; i < AM.SRoundDisplayDataDic[t].Classes.Length; i++)
             {
@@ -1652,7 +1654,7 @@ namespace TNHFramework.Patches
 
             constructor.allowEntry = false;
             EquipmentPool pool = LoadedTemplateManager.EquipmentPoolDictionary[entry];
-            CustomCharacter character = LoadedTemplateManager.LoadedCharactersDict[constructor.M.C];
+            TakeAndHoldCharacter character = LoadedTemplateManager.LoadedCharactersDict[constructor.M.C];
             List<EquipmentGroup> selectedGroups = pool.GetSpawnedEquipmentGroups();
             AnvilCallback<GameObject> gameObjectCallback;
 

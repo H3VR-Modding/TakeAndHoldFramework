@@ -85,7 +85,7 @@ namespace TNHFramework.Patches
                 __instance.m_timeTilPatrolCanSpawn -= Time.deltaTime;
             }
 
-            CustomCharacter character = LoadedTemplateManager.LoadedCharactersDict[__instance.C];
+            TakeAndHoldCharacter character = LoadedTemplateManager.LoadedCharactersDict[__instance.C];
             Level currLevel = character.GetCurrentLevel(__instance.m_curLevel);
 
             int maxPatrols = (__instance.EquipmentMode == TNHSetting_EquipmentMode.Spawnlocking) ?
@@ -386,7 +386,7 @@ namespace TNHFramework.Patches
         [HarmonyPrefix]
         private static bool GenerateInitialTakeSentryPatrolsReplacement(TNH_Manager __instance, TNH_PatrolChallenge P, int curSupplyPoint, int lastHoldIndex, int curHoldIndex, bool isStart)
         {
-            CustomCharacter character = LoadedTemplateManager.LoadedCharactersDict[__instance.C];
+            TakeAndHoldCharacter character = LoadedTemplateManager.LoadedCharactersDict[__instance.C];
             Level currLevel = character.GetCurrentLevel(__instance.m_curLevel);
 
             // Get a valid patrol index, and exit if there are no valid patrols
@@ -472,7 +472,7 @@ namespace TNHFramework.Patches
         [HarmonyPrefix]
         public static bool GenerateValidPatrolReplacement(TNH_Manager __instance, int curStandardIndex, int excludeHoldIndex, bool isStart)
         {
-            CustomCharacter character = LoadedTemplateManager.LoadedCharactersDict[__instance.C];
+            TakeAndHoldCharacter character = LoadedTemplateManager.LoadedCharactersDict[__instance.C];
             Level currLevel = character.GetCurrentLevel(__instance.m_curLevel);
 
             //Get a valid patrol index, and exit if there are no valid patrols
@@ -616,12 +616,12 @@ namespace TNHFramework.Patches
             }
         }
 
-        public static Sosig SpawnEnemy(SosigEnemyTemplate template, CustomCharacter character, Transform spawnLocation, TNH_Manager M, int IFF, bool isAssault, Vector3 pointOfInterest, bool allowAllWeapons)
+        public static Sosig SpawnEnemy(SosigEnemyTemplate template, TakeAndHoldCharacter character, Transform spawnLocation, TNH_Manager M, int IFF, bool isAssault, Vector3 pointOfInterest, bool allowAllWeapons)
         {
             return SpawnEnemy(template, character, spawnLocation.position, spawnLocation.rotation, M, IFF, isAssault, pointOfInterest, allowAllWeapons);
         }
 
-        public static Sosig SpawnEnemy(SosigEnemyTemplate template, CustomCharacter character, Vector3 spawnLocation, Quaternion spawnRotation, TNH_Manager M, int IFF, bool isAssault, Vector3 pointOfInterest, bool allowAllWeapons)
+        public static Sosig SpawnEnemy(SosigEnemyTemplate template, TakeAndHoldCharacter character, Vector3 spawnLocation, Quaternion spawnRotation, TNH_Manager M, int IFF, bool isAssault, Vector3 pointOfInterest, bool allowAllWeapons)
         {
             SosigTemplate customTemplate = LoadedTemplateManager.LoadedSosigsDict[template];
 

@@ -26,7 +26,7 @@ namespace TNHFramework
             hotdog.gameObject.SetActive(false);
 
             bool isOtherLoaderLoaded;
-            bool isMagPatcherLoaded;
+            bool isMagPatcherLoaded = false;
             try
             {
                 PokeOtherloader();
@@ -97,7 +97,7 @@ namespace TNHFramework
                 CreateTNHFiles(path);
             }
 
-            RefreshTNHUI(instance, Categories, CharDatabase);
+            // RefreshTNHUI(instance, Categories, CharDatabase);
 
             itemsText.text = "";
             progressText.text = "";
@@ -358,11 +358,11 @@ namespace TNHFramework
         /// </summary>
         /// <param name="characters"></param>
         /// <param name="isCustom"></param>
-        private static void InitCharacters(List<CustomCharacter> characters, bool isCustom)
+        private static void InitCharacters(List<TakeAndHoldCharacter> characters, bool isCustom)
         {
             for (int i = 0; i < characters.Count; i++)
             {
-                CustomCharacter character = characters[i];
+                TakeAndHoldCharacter character = characters[i];
 
                 try
                 {
@@ -400,7 +400,7 @@ namespace TNHFramework
                     for (int j = 0; j < LoadedTemplateManager.LoadedCharactersDict.Values.Count; j++)
                     {
                         //This is probably monsterously inefficient, but if you're at this point you're already fucked :)
-                        KeyValuePair<TNH_CharacterDef, CustomCharacter> value_pair = LoadedTemplateManager.LoadedCharactersDict.ToList()[j];
+                        KeyValuePair<TNH_CharacterDef, TakeAndHoldCharacter> value_pair = LoadedTemplateManager.LoadedCharactersDict.ToList()[j];
 
                         if (value_pair.Value.CharacterUsesSosig(sosig.SosigEnemyID))
                         {
@@ -413,7 +413,7 @@ namespace TNHFramework
             }
         }
 
-
+        /*
         public static void RefreshTNHUI(TNH_UIManager instance, List<TNH_UIManager.CharacterCategory> Categories, TNH_CharacterDatabase CharDatabase)
         {
             TNHFrameworkLogger.Log("Refreshing TNH UI", TNHFrameworkLogger.LogType.General);
@@ -424,7 +424,7 @@ namespace TNHFramework
                 bool flag = false;
                 foreach (TNH_UIManager.CharacterCategory category in Categories)
                 {
-                    if (category.CategoryName == LoadedTemplateManager.LoadedCharactersDict[character].CategoryData.Name)
+                    if (category.CategoryName == LoadedTemplateManager.LoadedCharactersDict[character].DisplayName)
                     {
                         flag = true; 
                         break;
@@ -435,7 +435,7 @@ namespace TNHFramework
                 {
                     Categories.Insert(LoadedTemplateManager.LoadedCharactersDict[character].CategoryData.Priority, new TNH_UIManager.CharacterCategory()
                     {
-                        CategoryName = LoadedTemplateManager.LoadedCharactersDict[character].CategoryData.Name,
+                        CategoryName = LoadedTemplateManager.LoadedCharactersDict[character].DisplayName,
                         Characters = []
                     });
                 }
@@ -455,5 +455,6 @@ namespace TNHFramework
             instanceTraverse.Method("SetSelectedCategory", selectedCategory).GetValue();
             instance.OBS_CharCategory.SetSelectedButton(selectedCharacter);
         }
+        */
     }
 }

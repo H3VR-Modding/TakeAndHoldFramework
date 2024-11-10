@@ -13,6 +13,10 @@ using TNHFramework.ObjectTemplates;
 using TNHFramework.Patches;
 using TNHFramework.Utilities;
 using UnityEngine;
+using UnityEngine.UI;
+using Anvil;
+using UnityEngine.AI;
+using TNHFramework.Managers;
 
 namespace TNHFramework
 {
@@ -20,6 +24,8 @@ namespace TNHFramework
     [BepInDependency(StratumRoot.GUID, StratumRoot.Version)]
     public class TNHFramework : StratumPlugin
     {
+        public static ConfigEntry<string> manager;
+        public static ConfigEntry<int> pathfindingIterations;
         private static ConfigEntry<bool> printCharacters;
         private static ConfigEntry<bool> logTNH;
         private static ConfigEntry<bool> logFileReads;
@@ -43,7 +49,13 @@ namespace TNHFramework
         public static Dictionary<FireArmClipType, List<FVRObject>> StripperDictionary = [];
         public static Dictionary<FireArmRoundType, List<FVRObject>> SpeedloaderDictionary = [];
 
-        //Variables used by various patches
+        // Handle loading custom scripts
+        public static TNHBaseManager currentManager;
+        public static List<TNHBaseManager> availableManagers = [];
+
+        // Options for TNH Tweaker's in-built 
+
+        // Variables used by various patches
         public static bool PreventOutfitFunctionality = false;
         public static List<int> SpawnedBossIndexes = [];
         public static List<int> PatrolIndexPool = [];
@@ -90,11 +102,12 @@ namespace TNHFramework
 
         public override void OnSetup(IStageContext<Empty> ctx)
         {
-            TNHLoaders TNHLoader = new();
+            FrameworkLoaders Loader = new();
 
-            ctx.Loaders.Add("tnhchar", TNHLoader.LoadChar);
-            ctx.Loaders.Add("tnhsosig", TNHLoader.LoadSosig);
-            ctx.Loaders.Add("tnhvaultgun", TNHLoader.LoadVaultFile);
+            ctx.Loaders.Add("tnhchar", Loader.LoadChar);
+            ctx.Loaders.Add("framechar", Loader.TNHLoadChar);
+            ctx.Loaders.Add("tnhsosig", Loader.LoadSosig);
+            ctx.Loaders.Add("tnhvaultgun", Loader.LoadVaultFile);
         }
 
         public override IEnumerator OnRuntime(IStageContext<IEnumerator> ctx)
@@ -150,6 +163,16 @@ namespace TNHFramework
                                     "InternalMagPatcher",
                                     true,
                                     "If true and MagazinePatcher plugin is NOT used, run internal version. There may be a short delay in the TNH lobby");
+
+            manager = Config.Bind("Manager",
+                                    "ManagerType",
+                                    "ClassicManager",
+                                    "Set to true to enable logging");
+
+            pathfindingIterations = Config.Bind("General",
+                                    "PathfindingIterations",
+                                    50,
+                                    "performance shitn't");
 
             BuildCharacterFiles = Config.Bind("General",
                                     "BuildCharacterFiles",
@@ -241,6 +264,58 @@ namespace TNHFramework
             __instance.RedrawHighScoreDisplay(__instance.m_curSequenceID);
 
             GM.Omni.SaveToFile();
+
+            return false;
+        }
+
+        [HarmonyPatch(typeof(AIManager), "Start")]
+        [HarmonyPostfix]
+        public static void AIPerfFix(AIManager __instance)
+        {
+            NavMesh.pathfindingIterationsPerFrame = pathfindingIterations.Value;
+        }
+
+        [HarmonyPatch(typeof(Sosig), "Start")]
+        [HarmonyPostfix]
+        public static void AIPerfFix2(Sosig __instance)
+        {
+            __instance.Agent.obstacleAvoidanceType = ObstacleAvoidanceType.LowQualityObstacleAvoidance;
+        }
+
+        [HarmonyPatch(typeof(Sosig), "TryToGetTo")]
+        [HarmonyPrefix]
+        public static bool AIPerfFix3(Sosig __instance, Vector3 v)
+        {
+            if (!__instance.Agent.enabled)
+            {
+                return false;
+            }
+            __instance.m_navToPoint = v;
+            float num = Vector3.Distance(__instance.m_navToPoint, __instance.lastDest);
+            __instance.debug_haspath = __instance.Agent.hasPath;
+            float num2 = Vector3.Distance(__instance.m_navToPoint, __instance.Agent.transform.position);
+            __instance.debug_pathpending = __instance.Agent.pathPending;
+            if (!__instance.m_isOnOffMeshLink && !__instance.debug_pathpending && (num > 0.2f || (!__instance.debug_haspath && num2 > 1f)))
+            {
+                TNHFrameworkLogger.Log("TNHTweaker -- Sosig is performing expensive calculation", TNHFrameworkLogger.LogType.TNH);
+                NavMeshHit navMeshHit;
+                if (NavMesh.SamplePosition(v, out navMeshHit, 1f, -1))
+                {
+                    v = navMeshHit.position;
+                }
+                if (__instance.Agent.isOnNavMesh)
+                {
+                    __instance.Agent.SetDestination(v);
+                }
+                __instance.lastDest = v;
+            }
+            Vector3 velocity = __instance.Agent.velocity;
+            Vector3 vector = __instance.transform.InverseTransformDirection(velocity);
+            Vector3 vector2 = new Vector3(Mathf.Clamp(-vector.z, -3f, 3f), 0f, Mathf.Clamp(vector.x, -3f, 3f)) * __instance.MovementRotMagnitude;
+            __instance.curEuluer = Vector3.Lerp(__instance.curEuluer, vector2, Time.deltaTime * 1f);
+            __instance.Pose_Standing.localEulerAngles = __instance.m_poseLocalEulers_Standing + __instance.curEuluer;
+            __instance.Pose_Crouching.localEulerAngles = __instance.m_poseLocalEulers_Crouching + __instance.curEuluer;
+            __instance.Pose_Prone.localEulerAngles = __instance.m_poseLocalEulers_Prone + __instance.curEuluer;
 
             return false;
         }

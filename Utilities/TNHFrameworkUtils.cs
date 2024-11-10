@@ -158,11 +158,11 @@ namespace TNHFramework.Utilities
         }
 
 
-        public static Dictionary<string, Sprite> GetAllIcons(List<CustomCharacter> characters)
+        public static Dictionary<string, Sprite> GetAllIcons(List<TakeAndHoldCharacter> characters)
         {
             Dictionary<string, Sprite> icons = [];
 
-            foreach(CustomCharacter character in characters)
+            foreach(TakeAndHoldCharacter character in characters)
             {
                 foreach(EquipmentPoolDef.PoolEntry pool in character.GetCharacter().EquipmentPool.Entries)
                 {
@@ -178,7 +178,7 @@ namespace TNHFramework.Utilities
         }
 
 
-        public static void CreateDefaultCharacterFiles(List<CustomCharacter> characters, string path)
+        public static void CreateDefaultCharacterFiles(List<TakeAndHoldCharacter> characters, string path)
         {
 
             try
@@ -192,7 +192,7 @@ namespace TNHFramework.Utilities
                     Directory.CreateDirectory(path);
                 }
                 
-                foreach (CustomCharacter charDef in characters)
+                foreach (TakeAndHoldCharacter charDef in characters)
                 {
                     if (File.Exists(path + "/" + charDef.DisplayName + ".json"))
                     {
@@ -253,7 +253,7 @@ namespace TNHFramework.Utilities
 
                 using (StreamWriter sw = File.CreateText(path))
                 {
-                    CustomCharacter character = new();
+                    TakeAndHoldCharacter character = new();
                     string characterString = JsonConvert.SerializeObject(character, Formatting.Indented, new StringEnumConverter());
                     sw.WriteLine(characterString);
                     sw.Close();
@@ -398,7 +398,7 @@ namespace TNHFramework.Utilities
                 }
 
 
-                foreach(CustomCharacter character in LoadedTemplateManager.LoadedCharactersDict.Values)
+                foreach(TakeAndHoldCharacter character in LoadedTemplateManager.LoadedCharactersDict.Values)
                 {
                     // Create a new file     
                     using (StreamWriter sw = File.CreateText(path + "/" + character.DisplayName + ".txt"))

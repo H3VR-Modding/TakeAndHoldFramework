@@ -116,7 +116,7 @@ namespace TNHFramework
 
                 TNHFrameworkLogger.Log("Character loaded successfuly : " + character.DisplayName, TNHFrameworkLogger.LogType.General);
 
-                LoadedTemplateManager.AddCharacterTemplate(new ObjectTemplates.CustomCharacter(character), thumbnail);
+                LoadedTemplateManager.AddCharacterTemplate(new ObjectTemplates.TakeAndHoldCharacter(character), thumbnail);
             }
             catch(Exception e)
             {

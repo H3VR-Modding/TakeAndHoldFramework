@@ -18,7 +18,7 @@ using YamlDotNet.Serialization;
 
 namespace TNHFramework
 {
-    public class TNHLoaders
+    public class FrameworkLoaders
     {
         public Empty LoadSosig(FileSystemInfo handle)
         {
@@ -81,7 +81,7 @@ namespace TNHFramework
 
             try
             {
-                CustomCharacter character = null;
+                TakeAndHoldCharacter character = null;
                 Sprite thumbnail = null;
 
                 foreach (FileInfo file in folder.GetFiles())
@@ -95,7 +95,108 @@ namespace TNHFramework
                             deserializerBuilder.WithTagMapping(thing.Key, thing.Value);
                         }
                         var deserializer = deserializerBuilder.Build();
-                        character = deserializer.Deserialize<CustomCharacter>(File.ReadAllText(file.FullName));
+                        character = deserializer.Deserialize<TakeAndHoldCharacter>(File.ReadAllText(file.FullName));
+
+                        TNHFrameworkLogger.Log("Character partially loaded - loaded character file", TNHFrameworkLogger.LogType.File);
+                    }
+                    else if (file.Name.EndsWith("character.json"))
+                    {
+                        JsonSerializerSettings settings = new()
+                        {
+                            NullValueHandling = NullValueHandling.Ignore
+                        };
+                        // Convert old JSON character files to the newer YAML format.
+                        character = new(JsonConvert.DeserializeObject<ObjectTemplates.V1.CustomCharacter>(File.ReadAllText(file.FullName), settings));
+
+                        if (TNHFramework.ConvertFilesToYAML.Value)
+                        {
+                            using (StreamWriter sw = File.CreateText(file.FullName.Replace(".json", ".yaml")))
+                            {
+                                var serializerBuilder = new SerializerBuilder();
+
+                                serializerBuilder.WithIndentedSequences();
+                                foreach (KeyValuePair<string, Type> thing in TNHFramework.Serializables)
+                                {
+                                    serializerBuilder.WithTagMapping(thing.Key, thing.Value);
+                                }
+                                var serializer = serializerBuilder.Build();
+                                string characterString = serializer.Serialize(character);
+                                sw.WriteLine(characterString);
+                                sw.Close();
+                            }
+
+                            File.Delete(file.FullName);
+                        }
+
+                        TNHFrameworkLogger.Log("Character partially loaded - loaded character file", TNHFrameworkLogger.LogType.File);
+                    }
+                    else if (file.FullName.EndsWith("thumb.png"))
+                    {
+                        thumbnail = TNHFrameworkUtils.LoadSprite(file);
+
+                        TNHFrameworkLogger.Log("Character partially loaded - loaded character icon", TNHFrameworkLogger.LogType.File);
+                    }
+                }
+
+                if (character == null)
+                {
+                    TNHFrameworkLogger.LogError("Failed to load custom character! No character.json file found");
+                    return new Empty();
+                }
+
+                else if (thumbnail == null)
+                {
+                    TNHFrameworkLogger.LogError("Failed to load custom character! No thumb.png file found");
+                    return new Empty();
+                }
+
+                // Now we want to load the icons for each pool
+                foreach (FileInfo iconFile in folder.GetFiles())
+                {
+                    foreach (EquipmentPool pool in character.EquipmentPools)
+                    {
+                        if (iconFile.FullName.Split('\\').Last() == pool.IconName)
+                        {
+                            pool.GetPoolEntry().TableDef.Icon = TNHFrameworkUtils.LoadSprite(iconFile);
+
+                            TNHFrameworkLogger.Log($"Character partially loaded - loaded misc icon {iconFile.Name}", TNHFrameworkLogger.LogType.File);
+                        }
+                    }
+                }
+
+                TNHFrameworkLogger.Log("Character loaded successfuly : " + character.DisplayName, TNHFrameworkLogger.LogType.File);
+
+                LoadedTemplateManager.AddCharacterTemplate(character, thumbnail);
+            }
+            catch (Exception e)
+            {
+                TNHFrameworkLogger.LogError("Failed to load setup assets for character! Caused Error: " + e.ToString());
+            }
+
+            return new Empty();
+        }
+
+        public Empty TNHLoadChar(FileSystemInfo handle)
+        {
+            DirectoryInfo folder = handle.ConsumeDirectory();
+
+            try
+            {
+                TakeAndHoldCharacter character = null;
+                Sprite thumbnail = null;
+
+                foreach (FileInfo file in folder.GetFiles())
+                {
+                    if (file.Name.EndsWith("character.yaml"))
+                    {
+                        var deserializerBuilder = new DeserializerBuilder();
+
+                        foreach (KeyValuePair<string, Type> thing in TNHFramework.Serializables)
+                        {
+                            deserializerBuilder.WithTagMapping(thing.Key, thing.Value);
+                        }
+                        var deserializer = deserializerBuilder.Build();
+                        character = deserializer.Deserialize<TakeAndHoldCharacter>(File.ReadAllText(file.FullName));
 
                         TNHFrameworkLogger.Log("Character partially loaded - loaded character file", TNHFrameworkLogger.LogType.File);
                     }

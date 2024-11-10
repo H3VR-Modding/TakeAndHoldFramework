@@ -263,7 +263,7 @@ namespace TNHFramework
 
         private void Scan()
         {
-            CustomCharacter character = LoadedTemplateManager.LoadedCharactersDict[original.M.C];
+            TakeAndHoldCharacter character = LoadedTemplateManager.LoadedCharactersDict[original.M.C];
 
             if (selectedObject != null)
             {
@@ -359,7 +359,7 @@ namespace TNHFramework
 
         private void UpdateIcons()
         {
-            CustomCharacter character = LoadedTemplateManager.LoadedCharactersDict[original.M.C];
+            TakeAndHoldCharacter character = LoadedTemplateManager.LoadedCharactersDict[original.M.C];
 
             DupeIcon.State = TNH_ObjectConstructorIcon.IconState.Cancel;
             UpgradeIcon.State = TNH_ObjectConstructorIcon.IconState.Cancel;
@@ -510,7 +510,7 @@ namespace TNHFramework
 
                 TNHFrameworkLogger.Log("Compatible rounds count for " + detectedFirearm.ObjectWrapper.ItemID + ": " + IM.OD[detectedFirearm.ObjectWrapper.ItemID].CompatibleSingleRounds.Count, TNHFrameworkLogger.LogType.General);
 
-                CustomCharacter character = LoadedTemplateManager.LoadedCharactersDict[original.M.C];
+                TakeAndHoldCharacter character = LoadedTemplateManager.LoadedCharactersDict[original.M.C];
                 MagazineBlacklistEntry blacklistEntry = null;
                 if (character.GetMagazineBlacklist().ContainsKey(detectedFirearm.ObjectWrapper.ItemID)) blacklistEntry = character.GetMagazineBlacklist()[detectedFirearm.ObjectWrapper.ItemID];
 
