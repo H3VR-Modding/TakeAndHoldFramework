@@ -9,9 +9,9 @@ using UnityEngine.UI;
 
 namespace TNHFramework.Editor
 {
-    public class OptionsComponent : MonoBehaviour
+    public class OptionsComponentManager : OptionsComponent
     {
-        public virtual void AddOption(Framework_UIManager manager, TNHBaseManager.OptionsData options)
+        public override void AddOption(Framework_UIManager manager, TNHBaseManager.OptionsData options)
         {
             OptionsPanel_ButtonSet buttonSet = GetComponent<OptionsPanel_ButtonSet>();
 
@@ -31,10 +31,5 @@ namespace TNHFramework.Editor
                 optionObject.GetComponent<Button>().onClick.AddListener(delegate { options.Options.ElementAt(i).Value.Invoke(); });
             }
         }
-
-        public GameObject prefab;
-        public Text text;
-        public string Identifier;
-        public int AssignedPage = -1;
     }
 }
