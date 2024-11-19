@@ -43,7 +43,7 @@ namespace TNHFramework.Patches
             bool shouldContinue = true;
             if (!__instance.m_hasInit)
             {
-                shouldContinue = TNHFramework.currentManager.InitTNH(__instance);
+                shouldContinue = true; // TNHFramework.currentManager.DelayedInit(__instance);
 
                 __instance.CharDB.Characters = TNHMenuInitializer.SavedCharacters;
 
@@ -1124,6 +1124,7 @@ namespace TNHFramework.Patches
 
 
 
+        /*
         [HarmonyPatch(typeof(TNH_HoldPoint), "IdentifyEncryption")] // Specify target method with HarmonyPatch attribute
         [HarmonyPrefix]
         public static bool IdentifyEncryptionReplacement(TNH_HoldPoint __instance)
@@ -1286,7 +1287,6 @@ namespace TNHFramework.Patches
         }
 
 
-
         [HarmonyPatch(typeof(TNH_HoldPoint), "SpawningRoutineUpdate")] // Specify target method with HarmonyPatch attribute
         [HarmonyPrefix]
         public static bool SpawningUpdateReplacement(TNH_HoldPoint __instance)
@@ -1324,6 +1324,7 @@ namespace TNHFramework.Patches
 
             return false;
         }
+        */
 
 
         #endregion

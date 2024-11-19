@@ -92,7 +92,7 @@ namespace TNHFramework
 
                         foreach (KeyValuePair<string, Type> thing in TNHFramework.Serializables)
                         {
-                            deserializerBuilder.WithTagMapping(thing.Key, thing.Value);
+                            deserializerBuilder.WithTagMapping("!" + thing.Key, thing.Value);
                         }
                         var deserializer = deserializerBuilder.Build();
                         character = deserializer.Deserialize<TakeAndHoldCharacter>(File.ReadAllText(file.FullName));
@@ -117,7 +117,7 @@ namespace TNHFramework
                                 serializerBuilder.WithIndentedSequences();
                                 foreach (KeyValuePair<string, Type> thing in TNHFramework.Serializables)
                                 {
-                                    serializerBuilder.WithTagMapping(thing.Key, thing.Value);
+                                    serializerBuilder.WithTagMapping("!" + thing.Key, thing.Value);
                                 }
                                 var serializer = serializerBuilder.Build();
                                 string characterString = serializer.Serialize(character);
@@ -193,7 +193,7 @@ namespace TNHFramework
 
                         foreach (KeyValuePair<string, Type> thing in TNHFramework.Serializables)
                         {
-                            deserializerBuilder.WithTagMapping(thing.Key, thing.Value);
+                            deserializerBuilder.WithTagMapping("!" + thing.Key, thing.Value);
                         }
                         var deserializer = deserializerBuilder.Build();
                         character = deserializer.Deserialize<TakeAndHoldCharacter>(File.ReadAllText(file.FullName));
@@ -218,7 +218,7 @@ namespace TNHFramework
                                 serializerBuilder.WithIndentedSequences();
                                 foreach (KeyValuePair<string, Type> thing in TNHFramework.Serializables)
                                 {
-                                    serializerBuilder.WithTagMapping(thing.Key, thing.Value);
+                                    serializerBuilder.WithTagMapping("!" + thing.Key, thing.Value);
                                 }
                                 var serializer = serializerBuilder.Build();
                                 string characterString = serializer.Serialize(character);

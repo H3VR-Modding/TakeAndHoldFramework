@@ -16,7 +16,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using Anvil;
 using UnityEngine.AI;
-using TNHFramework.Managers;
+using TNHFramework.Editor;
 
 namespace TNHFramework
 {
@@ -50,7 +50,6 @@ namespace TNHFramework
         public static Dictionary<FireArmRoundType, List<FVRObject>> SpeedloaderDictionary = [];
 
         // Handle loading custom scripts
-        public static TNHBaseManager currentManager;
         public static List<TNHBaseManager> availableManagers = [];
 
         // Options for TNH Tweaker's in-built 
@@ -89,6 +88,11 @@ namespace TNHFramework
 
             LoadConfigFile();
             LoadPanelSprites();
+
+            Serializables.Add("TNHCharacter", typeof(TakeAndHoldCharacter));
+            Serializables.Add("WarmupPhase", typeof(WarmupPhase));
+            Serializables.Add("ScanPhase", typeof(ScanPhase));
+            Serializables.Add("EncryptionPhase", typeof(EncryptionPhase));
 
             Harmony.CreateAndPatchAll(typeof(TNHFramework));
             Harmony.CreateAndPatchAll(typeof(TNHPatches));
@@ -297,7 +301,6 @@ namespace TNHFramework
             __instance.debug_pathpending = __instance.Agent.pathPending;
             if (!__instance.m_isOnOffMeshLink && !__instance.debug_pathpending && (num > 0.2f || (!__instance.debug_haspath && num2 > 1f)))
             {
-                TNHFrameworkLogger.Log("TNHTweaker -- Sosig is performing expensive calculation", TNHFrameworkLogger.LogType.TNH);
                 NavMeshHit navMeshHit;
                 if (NavMesh.SamplePosition(v, out navMeshHit, 1f, -1))
                 {

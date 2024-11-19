@@ -1,12 +1,20 @@
 ﻿using ADepIn;
+using BepInEx.Logging;
 using FistVR;
+using JetBrains.Annotations;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using TNHFramework.Main.ObjectWrappers;
 using TNHFramework.ObjectTemplates.V1;
+using TNHFramework.Patches;
 using TNHFramework.Utilities;
 using UnityEngine;
 using Valve.Newtonsoft.Json;
+using YamlDotNet.Serialization;
+using static FistVR.TNH_HoldChallenge;
 
 namespace TNHFramework.ObjectTemplates
 {
@@ -34,6 +42,7 @@ namespace TNHFramework.ObjectTemplates
         public List<MagazineBlacklistEntry> MagazineBlacklist = [];
 
         public EquipmentGroup RequireSightTable;
+        public StartingPoint StartRoom;
         public LoadoutEntry PrimaryWeapon;
         public LoadoutEntry SecondaryWeapon;
         public LoadoutEntry TertiaryWeapon;
@@ -50,7 +59,6 @@ namespace TNHFramework.ObjectTemplates
 
         [JsonIgnore]
         private Dictionary<string, MagazineBlacklistEntry> magazineBlacklistDict;
-
 
         public TakeAndHoldCharacter()
         {
@@ -321,33 +329,6 @@ namespace TNHFramework.ObjectTemplates
                 if (level.GetLevel().Equals(currLevel))
                 {
                     return level;
-                }
-            }
-
-            return null;
-        }
-
-        public Phase GetCurrentPhase(TNH_HoldChallenge.Phase currPhase)
-        {
-            foreach (Level level in Levels)
-            {
-                foreach (Phase phase in level.HoldPhases)
-                {
-                    if (phase.GetPhase().Equals(currPhase))
-                    {
-                        return phase;
-                    }
-                }
-            }
-
-            foreach (Level level in LevelsEndless)
-            {
-                foreach (Phase phase in level.HoldPhases)
-                {
-                    if (phase.GetPhase().Equals(currPhase))
-                    {
-                        return phase;
-                    }
                 }
             }
 
@@ -725,16 +706,16 @@ namespace TNHFramework.ObjectTemplates
 
 
         public override string ToString()
-    {
+        {
             string output = "Equipment Pool : IconName=" + IconName + " : CostLimited=" + TokenCostLimited + " : CostSpawnlock=" + TokenCost;
 
-            if(PrimaryGroup != null)
+            if (PrimaryGroup != null)
             {
                 output += "\nPrimary Group";
                 output += PrimaryGroup.ToString(0);
             }
 
-            if(BackupGroup != null)
+            if (BackupGroup != null)
             {
                 output += "\nBackup Group";
                 output += BackupGroup.ToString(0);
@@ -873,9 +854,9 @@ namespace TNHFramework.ObjectTemplates
         {
             if (objectTableDef == null)
             {
-                if (Tags == null) 
-                { 
-                    Tags = new(); 
+                if (Tags == null)
+                {
+                    Tags = new();
                 }
                 else
                 {
@@ -1470,9 +1451,29 @@ namespace TNHFramework.ObjectTemplates
             TakeChallenge = new(oldLevel.TakeChallenge);
             HoldPhases = [];
 
+            int HoldMyBeer = 0;
             foreach (V1.Phase oldPhase in oldLevel.HoldPhases)
             {
-                HoldPhases.Add(new(oldPhase));
+                foreach (Phase newPhase in Phase.GetNewPhases(oldPhase))
+                {
+                    if (HoldMyBeer == 0)
+                    {
+                        newPhase.Keys = ["Start"];
+                    }
+                    else
+                    {
+                        newPhase.Keys = ["Phase" + HoldMyBeer];
+                    }
+                    
+                    HoldMyBeer++;
+                    newPhase.Paths = ["Phase" + HoldMyBeer];
+                    // fix this if you want. i'm too tired rn
+                    if (HoldPhases.Count == (oldLevel.HoldPhases.Count * 3) - 1)
+                    {
+                        newPhase.Paths = ["End"];
+                    }
+                    HoldPhases.Add(newPhase);
+                }
             }
 
             SupplyChallenge = new(oldLevel.SupplyChallenge);
@@ -1489,7 +1490,35 @@ namespace TNHFramework.ObjectTemplates
             NumOverrideTokensForHold = level.NumOverrideTokensForHold;
             TakeChallenge = new TakeChallenge(level.TakeChallenge);
             SupplyChallenge = new TakeChallenge(level.TakeChallenge);
-            HoldPhases = level.HoldChallenge.Phases.Select(o => new Phase(o)).ToList();
+
+            HoldPhases = [];
+            int HoldMyBeer = 0;
+            foreach (TNH_HoldChallenge.Phase oldPhase in level.HoldChallenge.Phases)
+            {
+                foreach (Phase newPhase in Phase.GetNewPhases(oldPhase))
+                {
+                    newPhase.Keys = ["Phase" + HoldMyBeer];
+                    if (HoldMyBeer == 0)
+                    {
+                        newPhase.Keys = ["Start"];
+                    }
+                    HoldMyBeer++;
+                    newPhase.Paths = ["Phase" + HoldMyBeer];
+
+                    HoldPhases.Add(newPhase);
+                }
+            }
+            HoldPhases.Add(new WarmupPhase
+            {
+                Keys = [("Phase" + HoldMyBeer)],
+                Paths = ["End"],
+                PhaseLength = 5f,
+                DespawnSosigsBeforePhase = true,
+                DestroyCover = true,
+                AddCover = false,
+                IsEnd = true
+            });
+
             Patrols = level.PatrolChallenge.Patrols.Select(o => new Patrol(o)).ToList();
             PossiblePanelTypes =
             [
@@ -1519,10 +1548,6 @@ namespace TNHFramework.ObjectTemplates
             TakeChallenge ??= new();
 
             HoldPhases ??= [];
-            foreach (Phase holdPhase in HoldPhases)
-            {
-                holdPhase.Validate();
-            }
 
             SupplyChallenge ??= new();
 
@@ -1542,12 +1567,13 @@ namespace TNHFramework.ObjectTemplates
                 level.TakeChallenge = TakeChallenge.GetTakeChallenge();
 
                 level.HoldChallenge = (TNH_HoldChallenge)ScriptableObject.CreateInstance(typeof(TNH_HoldChallenge));
-                level.HoldChallenge.Phases = [];
+                level.HoldChallenge.Phases = null;
+                /*
                 foreach (Phase phase in HoldPhases)
                 {
                     level.HoldChallenge.Phases.Add(phase.GetPhase());
                 }
-                //level.HoldChallenge.Phases = HoldPhases.Select(o => o.GetPhase()).ToList();
+                */
 
                 level.SupplyChallenge = SupplyChallenge.GetTakeChallenge();
                 level.PatrolChallenge = (TNH_PatrolChallenge)ScriptableObject.CreateInstance(typeof(TNH_PatrolChallenge));
@@ -1575,11 +1601,6 @@ namespace TNHFramework.ObjectTemplates
             {
                 MaxSupplyPoints = Mathf.Clamp(levelIndex + 1, 1, 3);
                 MinSupplyPoints = Mathf.Clamp(levelIndex + 1, 1, 3);
-
-                foreach (Phase phase in HoldPhases)
-                {
-                    phase.DelayedInit(isCustom);
-                }
             }
         }
 
@@ -1613,17 +1634,9 @@ namespace TNHFramework.ObjectTemplates
 
             foreach (Phase phase in HoldPhases)
             {
-                if (phase.LeaderType == id)
+                if (phase.DoesUseSosig(id))
                 {
                     return true;
-                }
-
-                foreach (string sosigID in phase.EnemyType)
-                {
-                    if (sosigID == id)
-                    {
-                        return true;
-                    }
                 }
             }
 
@@ -1647,7 +1660,7 @@ namespace TNHFramework.ObjectTemplates
 
         public TakeChallenge() { }
 
-        public TakeChallenge(V1.TakeChallenge oldTake) 
+        public TakeChallenge(V1.TakeChallenge oldTake)
         {
             TurretType = oldTake.TurretType;
             EnemyType = oldTake.EnemyType;
@@ -1694,144 +1707,964 @@ namespace TNHFramework.ObjectTemplates
         }
     }
 
-    public class Phase
+    public abstract class Phase
+    {
+        public List<string> Keys = [];
+        public List<string> Paths = [];
+
+        public float PhaseLength = 5f;
+        public bool DespawnSosigsBeforePhase = false;
+        public bool DestroyCover = true;
+        public bool AddCover = true;
+
+        public static float TimeSinceLastWarmup = 0f;
+        [YamlIgnore]
+        public float TimeLeft = 900f;
+
+        public virtual void BeginHold(TNH_HoldPoint manager, TakeAndHoldCharacter character)
+        {
+            if (!manager.M.HasGuardBeenKilledThatWasAltered())
+            {
+                manager.M.IncrementScoringStat(TNH_Manager.ScoringEvent.TakeHoldPointTakenClean, 1);
+            }
+            if (!manager.M.HasPlayerAlertedSecurityThisPhase())
+            {
+                manager.M.IncrementScoringStat(TNH_Manager.ScoringEvent.TakeCompleteNoAlert, 1);
+            }
+            if (!manager.M.HasPlayerTakenDamageThisPhase())
+            {
+                manager.M.IncrementScoringStat(TNH_Manager.ScoringEvent.TakeCompleteNoDamage, 1);
+            }
+            manager.M.ResetAlertedThisPhase();
+            manager.M.ResetPlayerTookDamageThisPhase();
+            manager.M.ResetHasGuardBeenKilledThatWasAltered();
+            manager.NavBlockers.SetActive(true);
+            manager.m_maxPhases = 99;
+            manager.m_hasBeenDamagedThisHold = false;
+            manager.M.EnqueueLine(TNH_VoiceLineID.BASE_IntrusionDetectedInitiatingLockdown);
+            manager.M.EnqueueLine(TNH_VoiceLineID.AI_InterfacingWithSystemNode);
+            manager.M.EnqueueLine(TNH_VoiceLineID.BASE_ResponseTeamEnRoute);
+            manager.m_isInHold = true;
+            manager.m_numWarnings = 0;
+            manager.M.HoldPointStarted(manager);
+
+            BeginPhase(manager, character);
+        }
+
+        public void BaseBeginPhase(TNH_HoldPoint manager, TakeAndHoldCharacter character)
+        {
+            TNHFrameworkLogger.Log($"Start of phase {manager.m_phaseIndex}/{Keys[0]}.", TNHFrameworkLogger.LogType.General);
+            TimeLeft = PhaseLength;
+
+            if (Paths.Contains("End") && !Paths.Contains("Start"))
+            {
+                manager.M.SetHoldWaveIntensity(2);
+            }
+            else
+            {
+                manager.M.SetHoldWaveIntensity(1);
+            }
+
+            manager.m_hasPlayedTimeWarning1 = false;
+            manager.m_hasPlayedTimeWarning2 = false;
+            manager.m_isFirstWave = true;
+
+            if (DespawnSosigsBeforePhase)
+            {
+                manager.DeletionBurst();
+                manager.M.ClearMiscEnemies();
+
+                UnityEngine.Object.Instantiate(manager.VFX_HoldWave, manager.m_systemNode.NodeCenter.position, manager.m_systemNode.NodeCenter.rotation);
+            }
+            if (DestroyCover)
+            {
+                manager.LowerAllBarriers();
+            }
+            if (AddCover)
+            {
+                manager.RefreshCoverInHold();
+            }
+        }
+
+        public virtual void BeginPhase(TNH_HoldPoint manager, TakeAndHoldCharacter character) { }
+
+        public void BaseHoldUpdate(TNH_HoldPoint manager, TakeAndHoldCharacter character)
+        {
+            TimeLeft -= Time.deltaTime;
+            if (TimeLeft <= 0f)
+            {
+                EndPhase(manager, character);
+            }
+            TimeSinceLastWarmup += Time.deltaTime;
+        }
+
+        public virtual void HoldUpdate(TNH_HoldPoint manager, TakeAndHoldCharacter character)
+        {
+            BaseHoldUpdate(manager, character);
+        }
+
+        public string BaseEndPhase(TNH_HoldPoint manager, TakeAndHoldCharacter character)
+        {
+            string path = Paths.GetRandom();
+            if (path == "End")
+            {
+                manager.m_phaseIndex = 0;
+                EndHold(manager, character);
+                return path;
+            }
+            else
+            {
+                List<Phase> currentPhases = character.GetCurrentLevel(manager.M.m_curLevel).HoldPhases;
+                List<Phase> validPhases = [];
+
+                foreach (Phase phase in currentPhases)
+                {
+                    if (phase.Keys.Contains(path))
+                    {
+                        validPhases.Add(phase);
+                    }
+                }
+
+                Phase chosenPhase = validPhases.GetRandom();
+
+                manager.m_phaseIndex = currentPhases.IndexOf(chosenPhase);
+                chosenPhase.BeginPhase(manager, character);
+
+                return path;
+            }
+        }
+
+        public virtual void EndPhase(TNH_HoldPoint manager, TakeAndHoldCharacter character)
+        {
+            TNHFrameworkLogger.Log($"End of phase {manager.m_phaseIndex}/{Keys[0]}.", TNHFrameworkLogger.LogType.General);
+
+            BaseEndPhase(manager, character);
+        }
+
+        public virtual void EndHold(TNH_HoldPoint manager, TakeAndHoldCharacter character)
+        {
+            manager.m_isInHold = false;
+            if (!manager.m_hasBeenDamagedThisHold)
+            {
+                manager.M.IncrementScoringStat(TNH_Manager.ScoringEvent.HoldPhaseCompleteNoDamage, 1);
+            }
+            manager.M.IncrementScoringStat(TNH_Manager.ScoringEvent.HoldPhaseComplete, 1);
+            SM.PlayCoreSound(FVRPooledAudioType.GenericLongRange, manager.AUDEvent_Success, manager.transform.position);
+            manager.M.EnqueueLine(TNH_VoiceLineID.AI_HoldSuccessfulDataExtracted);
+            int num = manager.m_tokenReward;
+            if (manager.m_numWarnings > 6)
+            {
+                num--;
+            }
+            else if (manager.m_numWarnings > 3)
+            {
+                num--;
+            }
+            if (num > 0)
+            {
+                manager.M.EnqueueTokenLine(num);
+                manager.M.AddTokens(num, true);
+            }
+            manager.m_tokenReward = 0;
+            manager.M.EnqueueLine(TNH_VoiceLineID.AI_AdvanceToNextSystemNodeAndTakeIt);
+            manager.M.HoldPointCompleted(manager, true);
+            manager.ShutDownHoldPoint();
+        }
+
+        public virtual void SpawnWarpInMarkers(TNH_HoldPoint manager, TakeAndHoldCharacter character) { }
+
+        public static List<Phase> GetNewPhases(TNH_HoldChallenge.Phase phase)
+        {
+            return
+            [
+                new WarmupPhase
+                {
+                    PhaseLength = phase.WarmUp,
+                    DespawnSosigsBeforePhase = true,
+                    DestroyCover = true,
+                    AddCover = false
+                },
+                new ScanPhase
+                {
+                    PhaseLength = phase.ScanTime,
+                    DespawnSosigsBeforePhase = false,
+                    DestroyCover = false,
+                    AddCover = true,
+                    Waves = [
+                        new ScanPhase.EnemySpawn
+                        {
+                            EnemyType = [phase.EType.ToString()],
+                            LeaderType = phase.LType.ToString(),
+                            MinEnemies = phase.MinEnemies,
+                            MaxEnemies = phase.MaxEnemies,
+                            MaxEnemiesAlive = phase.MaxEnemiesAlive,
+                            MaxDirections = phase.MaxDirections,
+                            SpawnCadence = phase.SpawnCadence,
+                            IFFUsed = phase.IFFUsed,
+                            GrenadeChance = 0,
+                            GrenadeType = "Sosiggrenade_Flash",
+                            SwarmPlayer = false
+                        }
+                    ]
+                },
+                new EncryptionPhase
+                {
+                    PhaseLength = 120f,
+                    DespawnSosigsBeforePhase = false,
+                    DestroyCover = false,
+                    AddCover = false,
+                    Encryptions = [phase.Encryption],
+                    MinTargets = phase.MinTargets,
+                    MaxTargets = phase.MaxTargets,
+                    MinTargetsLimited = aaAAAA(phase.MinTargets, phase.Encryption),
+                    MaxTargetsLimited = aaAAAA(phase.MaxTargets, phase.Encryption),
+                    FirstWarningTime = 60,
+                    SecondWarningTime = 30,
+                    Waves = [
+                        new ScanPhase.EnemySpawn
+                        {
+                            EnemyType = [phase.EType.ToString()],
+                            LeaderType = phase.LType.ToString(),
+                            MinEnemies = phase.MinEnemies,
+                            MaxEnemies = phase.MaxEnemies,
+                            MaxEnemiesAlive = phase.MaxEnemiesAlive,
+                            MaxDirections = phase.MaxDirections,
+                            SpawnCadence = phase.SpawnCadence,
+                            IFFUsed = phase.IFFUsed,
+                            GrenadeChance = 0,
+                            GrenadeType = "Sosiggrenade_Flash",
+                            SwarmPlayer = false
+                        }
+                    ]
+                }
+            ];
+
+            static int aaAAAA(int targets, TNH_EncryptionType type)
+            {
+                if (type != TNH_EncryptionType.Static)
+                {
+                    return 1;
+                }
+                return Mathf.Clamp(targets, 1, 3);
+            }
+        }
+
+        public static List<Phase> GetNewPhases(V1.Phase oldPhase)
+        {
+            return
+            [
+                new WarmupPhase
+                {
+                    PhaseLength = oldPhase.WarmupTime,
+                    DespawnSosigsBeforePhase = true,
+                    DestroyCover = true,
+                    AddCover = false
+                },
+                new ScanPhase
+                {
+                    PhaseLength = oldPhase.ScanTime,
+                    DespawnSosigsBeforePhase = false,
+                    DestroyCover = false,
+                    AddCover = true,
+                    Waves = [
+                        new ScanPhase.EnemySpawn
+                        {
+                            EnemyType = oldPhase.EnemyType ?? [],
+                            LeaderType = oldPhase.LeaderType,
+                            MinEnemies = oldPhase.MinEnemies,
+                            MaxEnemies = oldPhase.MaxEnemies,
+                            MaxEnemiesAlive = oldPhase.MaxEnemiesAlive,
+                            MaxDirections = oldPhase.MaxDirections,
+                            SpawnCadence = oldPhase.SpawnCadence,
+                            IFFUsed = oldPhase.IFFUsed,
+                            GrenadeChance = oldPhase.GrenadeChance,
+                            GrenadeType = oldPhase.GrenadeType,
+                            SwarmPlayer = oldPhase.SwarmPlayer
+                        }
+                    ]
+                },
+                new EncryptionPhase
+                {
+                    PhaseLength = 120f,
+                    DespawnSosigsBeforePhase = false,
+                    DestroyCover = false,
+                    AddCover = false,
+                    Encryptions = oldPhase.Encryptions ?? [],
+                    MinTargets = oldPhase.MinTargets,
+                    MaxTargets = oldPhase.MaxTargets,
+                    MinTargetsLimited = oldPhase.MinTargetsLimited,
+                    MaxTargetsLimited = oldPhase.MaxTargetsLimited,
+                    FirstWarningTime = 60,
+                    SecondWarningTime = 30,
+                    Waves = [
+                        new ScanPhase.EnemySpawn
+                        {
+                            EnemyType = oldPhase.EnemyType ?? [],
+                            LeaderType = oldPhase.LeaderType,
+                            MinEnemies = oldPhase.MinEnemies,
+                            MaxEnemies = oldPhase.MaxEnemies,
+                            MaxEnemiesAlive = oldPhase.MaxEnemiesAlive,
+                            MaxDirections = oldPhase.MaxDirections,
+                            SpawnCadence = oldPhase.SpawnCadence,
+                            IFFUsed = oldPhase.IFFUsed,
+                            GrenadeChance = oldPhase.GrenadeChance,
+                            GrenadeType = oldPhase.GrenadeType,
+                            SwarmPlayer = oldPhase.SwarmPlayer
+                        }
+                    ]
+                }
+            ];
+        }
+
+        public virtual bool DoesUseSosig(string sosigString)
+        {
+            return false;
+        }
+    }
+
+    public class WarmupPhase : Phase
+    {
+        public bool IsEnd = false;
+
+        public override void BeginPhase(TNH_HoldPoint manager, TakeAndHoldCharacter character)
+        {
+            BaseBeginPhase(manager, character);
+
+            manager.m_systemNode.SetNodeMode(TNH_HoldPointSystemNode.SystemNodeMode.Hacking);
+
+            manager.m_tickDownToNextGroupSpawn = 0f;
+            manager.m_hasBeenDamagedThisPhase = false;
+        }
+
+        [YamlIgnore]
+        float TextTime = 0f;
+
+        public override void HoldUpdate(TNH_HoldPoint manager, TakeAndHoldCharacter character)
+        {
+            BaseHoldUpdate(manager, character);
+            TextTime += Time.deltaTime;
+
+            switch (TextTime)
+            {
+                case > 1f:
+                    manager.m_systemNode.SetDisplayString("SCANNING SYSTEM");
+                    TextTime = 0f;
+                    break;
+                case > 0.45f:
+                    manager.m_systemNode.SetDisplayString("SCANNING SYSTEM...");
+                    break;
+                case > 0.3f:
+                    manager.m_systemNode.SetDisplayString("SCANNING SYSTEM..");
+                    break;
+                case > 0.15f:
+                    manager.m_systemNode.SetDisplayString("SCANNING SYSTEM.");
+                    break;
+                default:
+                    manager.m_systemNode.SetDisplayString("SCANNING SYSTEM");
+                    break;
+            }
+        }
+
+        public override void EndPhase(TNH_HoldPoint manager, TakeAndHoldCharacter character)
+        {
+            BaseEndPhase(manager, character);
+            TimeSinceLastWarmup = 0f;
+        }
+    }
+
+    public class ScanPhase : Phase
+    {
+        public List<EnemySpawn> Waves = [];
+
+        [YamlIgnore]
+        public static Dictionary<string, float> TagTimers = null;
+        [YamlIgnore]
+        public Phase LastPhase = null;
+        [YamlIgnore]
+        public Phase NextPhase = null;
+
+        public override void BeginPhase(TNH_HoldPoint manager, TakeAndHoldCharacter character)
+        {
+            BaseBeginPhase(manager, character);
+
+            manager.M.EnqueueLine(TNH_VoiceLineID.AI_AnalyzingSystem);
+            manager.m_state = TNH_HoldPoint.HoldState.Analyzing;
+
+            manager.m_tickDownToIdentification = PhaseLength * 0.8f;
+
+            if (manager.M.TargetMode == TNHSetting_TargetMode.NoTargets)
+            {
+                manager.m_tickDownToIdentification = PhaseLength * 0.9f + 60f;
+            }
+            else if (manager.M.IsBigLevel)
+            {
+                manager.m_tickDownToIdentification += 15f;
+            }
+            manager.SpawnPoints_Targets.Shuffle();
+            manager.m_validSpawnPoints.Shuffle();
+            manager.m_tickDownToNextGroupSpawn = 0f;
+
+            string path = Paths.GetRandom();
+            if (path != "End")
+            {
+                List<Phase> currentPhases = character.GetCurrentLevel(manager.M.m_curLevel).HoldPhases;
+                List<Phase> validPhases = [];
+
+                foreach (Phase phase in currentPhases)
+                {
+                    if (phase.Keys.Contains(path))
+                    {
+                        validPhases.Add(phase);
+                    }
+                }
+
+                NextPhase = validPhases.GetRandom();
+                if (NextPhase is ScanPhase)
+                {
+                    (NextPhase as ScanPhase).LastPhase = this;
+                }
+                
+                NextPhase.SpawnWarpInMarkers(manager, character);
+            }
+
+            manager.m_systemNode.SetNodeMode(TNH_HoldPointSystemNode.SystemNodeMode.Analyzing);
+        }
+
+        [YamlIgnore]
+        float TextTime = 0f;
+
+        public override void HoldUpdate(TNH_HoldPoint manager, TakeAndHoldCharacter character)
+        {
+            BaseHoldUpdate(manager, character);
+
+            foreach (EnemySpawn spawnWave in Waves)
+            {
+                spawnWave.SpawningRoutine(manager, this, character);
+            }
+            manager.m_isFirstWave = false;
+
+            if (manager.M.TargetMode == TNHSetting_TargetMode.NoTargets)
+            {
+                manager.m_systemNode.SetDisplayString("ANALYZING, COMPLETE IN " + manager.FloatToTime(TimeLeft, "0:00.00"));
+            }
+            else
+            {
+                TextTime += Time.deltaTime;
+
+                switch (TextTime)
+                {
+                    case > 1f:
+                        manager.m_systemNode.SetDisplayString("ANALYZING");
+                        TextTime = 0f;
+                        break;
+                    case > 0.45f:
+                        manager.m_systemNode.SetDisplayString("ANALYZING...");
+                        break;
+                    case > 0.3f:
+                        manager.m_systemNode.SetDisplayString("ANALYZING..");
+                        break;
+                    case > 0.15f:
+                        manager.m_systemNode.SetDisplayString("ANALYZING.");
+                        break;
+                    default:
+                        manager.m_systemNode.SetDisplayString("ANALYZING");
+                        break;
+                }
+            }
+        }
+
+        public override void EndPhase(TNH_HoldPoint manager, TakeAndHoldCharacter character)
+        {
+            if (NextPhase == null)
+            {
+                EndHold(manager, character);
+            }
+            else
+            {
+                List<Phase> currentPhases = character.GetCurrentLevel(manager.M.m_curLevel).HoldPhases;
+
+                manager.m_phaseIndex = currentPhases.IndexOf(NextPhase);
+                NextPhase.BeginPhase(manager, character);
+            }
+        }
+
+        public override bool DoesUseSosig(string sosigString)
+        {
+            bool boolean = false;
+            foreach (EnemySpawn wave in Waves)
+            {
+                if ((wave.LeaderType == sosigString) || wave.EnemyType.Contains(sosigString))
+                {
+                    boolean = true;
+                    break; 
+                }
+            }
+            return boolean;
+        }
+
+        public class EnemySpawn
+        {
+            public string Tag;
+            public string LeaderType;
+            public List<string> EnemyType;
+            public int MinEnemies;
+            public int MaxEnemies;
+            public int MaxEnemiesAlive;
+            public int MaxDirections;
+            public float SpawnCadence;
+            public float Delay = 0;
+            public int SpawnLimit = -1;
+            public int IFFUsed;
+            public float GrenadeChance;
+            public string GrenadeType;
+            public bool SwarmPlayer;
+
+            [YamlIgnore]
+            public float SpawnTimer = 0f;
+            [YamlIgnore]
+            public int SpawnedSoFar = 0;
+
+            public virtual List<Sosig> SpawningRoutine(TNH_HoldPoint manager, ScanPhase phase, TakeAndHoldCharacter character)
+            {
+                SpawnTimer -= Time.deltaTime;
+
+                if (manager.m_isFirstWave)
+                {
+                    // Check if a spawn wave is identical 
+                    if (phase.LastPhase != null && phase.LastPhase is ScanPhase)
+                    {
+                        ScanPhase last = phase.LastPhase as ScanPhase;
+                        bool didWeJustDoThat = false;
+                        foreach (EnemySpawn spawn in last.Waves)
+                        {
+                            if (spawn.Tag == Tag && last.Waves.IndexOf(spawn) == phase.Waves.IndexOf(this))
+                            {
+                                SpawnTimer = spawn.SpawnTimer;
+                                SpawnedSoFar = spawn.SpawnedSoFar;
+                                didWeJustDoThat = true;
+                                break;
+                            }
+                        }
+
+                        foreach (EnemySpawn spawn in phase.Waves)
+                        {
+                            if (spawn == this || didWeJustDoThat)
+                            {
+                                break;
+                            }
+                            else if (spawn.Tag == Tag)
+                            {
+                                SpawnTimer += spawn.SpawnCadence;
+                            }
+                        }
+                    }
+                    SpawnTimer += Delay;
+                }
+
+                if (!manager.m_hasThrownNadesInWave && SpawnTimer <= 5f && !manager.m_isFirstWave)
+                {
+                    // Check if grenade vectors exist before throwing grenades
+                    if (manager.AttackVectors[0].GrenadeVector != null)
+                        SpawnGrenades(manager.AttackVectors, manager.M, manager.m_phaseIndex);
+
+                    manager.m_hasThrownNadesInWave = true;
+                }
+
+                // Handle spawning of a wave if it is time
+                if (SpawnTimer <= 0 && manager.m_activeSosigs.Count + MaxEnemies <= MaxEnemiesAlive && (SpawnLimit < 0 || SpawnLimit > SpawnedSoFar))
+                {
+                    manager.AttackVectors.Shuffle();
+
+                    List<Sosig> spawns = SpawnHoldEnemyGroup(manager.m_phaseIndex, manager.AttackVectors, manager.SpawnPoints_Turrets, manager.m_activeSosigs, phase, manager.M);
+                    manager.m_hasThrownNadesInWave = false;
+
+                    // Adjust spawn cadence depending on ammo mode
+                    float ammoMult = (manager.M.EquipmentMode == TNHSetting_EquipmentMode.LimitedAmmo ? 1.35f : 1f);
+                    float randomMult = (GM.TNHOptions.TNHSeed >= 0) ? 0.9f : UnityEngine.Random.Range(0.9f, 1.1f);
+                    SpawnTimer += SpawnCadence * randomMult * ammoMult;
+
+                    foreach (EnemySpawn wave in phase.Waves)
+                    {
+                        if (wave != this && wave.Tag == Tag)
+                        {
+                            SpawnTimer += wave.SpawnCadence;
+                        }
+                    }
+
+                    return spawns;
+                }
+                return [];
+            }
+
+            public void SpawnGrenades(List<TNH_HoldPoint.AttackVector> AttackVectors, TNH_Manager M, int phaseIndex)
+            {
+                TakeAndHoldCharacter character = LoadedTemplateManager.LoadedCharactersDict[M.C];
+
+                float grenadeChance = GrenadeChance;
+                string grenadeType = GrenadeType;
+
+                if (grenadeChance >= UnityEngine.Random.Range(0f, 1f))
+                {
+                    TNHFrameworkLogger.Log($"Throwing grenade [{grenadeType}]", TNHFrameworkLogger.LogType.TNH);
+
+                    //Get a random grenade vector to spawn a grenade at
+                    AttackVectors.Shuffle();
+                    TNH_HoldPoint.AttackVector randAttackVector = AttackVectors[UnityEngine.Random.Range(0, AttackVectors.Count)];
+
+                    //Instantiate the grenade object
+                    if (IM.OD.ContainsKey(grenadeType))
+                    {
+                        GameObject grenadeObject = UnityEngine.Object.Instantiate(IM.OD[grenadeType].GetGameObject(), randAttackVector.GrenadeVector.position, randAttackVector.GrenadeVector.rotation);
+
+                        //Give the grenade an initial velocity based on the grenade vector
+                        grenadeObject.GetComponent<Rigidbody>().velocity = 15 * randAttackVector.GrenadeVector.forward;
+                        grenadeObject.GetComponent<SosigWeapon>().FuseGrenade();
+                    }
+                }
+            }
+
+            public List<Sosig> SpawnHoldEnemyGroup(int phaseIndex, List<TNH_HoldPoint.AttackVector> AttackVectors, List<Transform> SpawnPoints_Turrets, List<Sosig> ActiveSosigs, ScanPhase phase, TNH_Manager M)
+            {
+                TNHFrameworkLogger.Log("Spawning enemy wave", TNHFrameworkLogger.LogType.TNH);
+
+                //TODO add custom property form MinDirections
+                int numAttackVectors = UnityEngine.Random.Range(1, MaxDirections + 1);
+                numAttackVectors = Mathf.Clamp(numAttackVectors, 1, AttackVectors.Count);
+
+                //Get the custom character data
+                TakeAndHoldCharacter character = LoadedTemplateManager.LoadedCharactersDict[M.C];
+
+                //Set first enemy to be spawned as leader
+                string selectedID = LeaderType;
+                SosigEnemyTemplate enemyTemplate = ManagerSingleton<IM>.Instance.odicSosigObjsByID[(SosigEnemyID)LoadedTemplateManager.SosigIDDict[selectedID]];
+                int enemiesToSpawn = UnityEngine.Random.Range(MinEnemies, MaxEnemies + 1);
+
+                TNHFrameworkLogger.Log($"Spawning {enemiesToSpawn} hold guards (Phase {phaseIndex})", TNHFrameworkLogger.LogType.TNH);
+
+                int sosigsSpawned = 0;
+                int vectorSpawnPoint = 0;
+                Vector3 targetVector;
+                int vectorIndex = 0;
+                List<Sosig> newSosigs = [];
+                while (sosigsSpawned < enemiesToSpawn)
+                {
+                    TNHFrameworkLogger.Log("Spawning at attack vector: " + vectorIndex, TNHFrameworkLogger.LogType.TNH);
+
+                    if (AttackVectors[vectorIndex].SpawnPoints_Sosigs_Attack.Count <= vectorSpawnPoint) break;
+
+                    //Set the sosig's target position
+                    if (SwarmPlayer)
+                    {
+                        targetVector = GM.CurrentPlayerBody.TorsoTransform.position;
+                    }
+                    else
+                    {
+                        targetVector = SpawnPoints_Turrets[UnityEngine.Random.Range(0, SpawnPoints_Turrets.Count)].position;
+                    }
+
+                    Sosig enemy = PatrolPatches.SpawnEnemy(enemyTemplate, character, AttackVectors[vectorIndex].SpawnPoints_Sosigs_Attack[vectorSpawnPoint], M, IFFUsed, true, targetVector, true);
+
+                    ActiveSosigs.Add(enemy);
+                    newSosigs.Add(enemy);
+                    SosigKillTester tester = enemy.gameObject.AddComponent<SosigKillTester>();
+                    tester.SosigID = selectedID;
+
+                    //At this point, the leader has been spawned, so always set enemy to be regulars
+                    selectedID = EnemyType.GetRandom();
+                    enemyTemplate = ManagerSingleton<IM>.Instance.odicSosigObjsByID[(SosigEnemyID)LoadedTemplateManager.SosigIDDict[selectedID]];
+                    sosigsSpawned += 1;
+
+                    vectorIndex += 1;
+                    if (vectorIndex >= numAttackVectors)
+                    {
+                        vectorIndex = 0;
+                        vectorSpawnPoint += 1;
+                    }
+                }
+                return newSosigs;
+            }
+        }
+    }
+
+    public class EncryptionPhase : ScanPhase
     {
         public List<TNH_EncryptionType> Encryptions;
         public int MinTargets;
         public int MaxTargets;
         public int MinTargetsLimited;
         public int MaxTargetsLimited;
-        public List<string> EnemyType;
-        public string LeaderType;
-        public int MinEnemies;
-        public int MaxEnemies;
-        public int MaxEnemiesAlive;
-        public int MaxDirections;
-        public float SpawnCadence;
-        public float ScanTime;
-        public float WarmupTime;
-        public int IFFUsed;
-        public float GrenadeChance;
-        public string GrenadeType;
-        public bool SwarmPlayer;
-        public bool DespawnBetweenWaves = true;
-        public bool UsesVFX = true;
+        public float FirstWarningTime;
+        public float SecondWarningTime;
 
-        [JsonIgnore]
-        private TNH_HoldChallenge.Phase phase;
-
-        public Phase()
+        public override void BeginPhase(TNH_HoldPoint manager, TakeAndHoldCharacter character)
         {
-            Encryptions = [];
-            EnemyType = [];
-        }
+            BaseBeginPhase(manager, character);
 
-        public Phase(V1.Phase oldPhase)
-        {
-            Encryptions = oldPhase.Encryptions ?? [];
-            MinTargets = oldPhase.MinTargets;
-            MaxTargets = oldPhase.MaxTargets;
-            MinTargetsLimited = oldPhase.MinTargetsLimited;
-            MaxTargetsLimited = oldPhase.MaxTargetsLimited;
-            EnemyType = oldPhase.EnemyType ?? [];
-            LeaderType = oldPhase.LeaderType;
-            MinEnemies = oldPhase.MinEnemies;
-            MaxEnemies = oldPhase.MaxEnemies;
-            MaxEnemiesAlive = oldPhase.MaxEnemiesAlive;
-            MaxDirections = oldPhase.MaxDirections;
-            SpawnCadence = oldPhase.SpawnCadence;
-            ScanTime = oldPhase.ScanTime;
-            WarmupTime = oldPhase.WarmupTime;
-            IFFUsed = oldPhase.IFFUsed;
-            GrenadeChance = oldPhase.GrenadeChance;
-            GrenadeType = oldPhase.GrenadeType;
-            SwarmPlayer =  oldPhase.SwarmPlayer;
-            DespawnBetweenWaves = true;
-            UsesVFX = true;
-        }
-
-        public Phase(TNH_HoldChallenge.Phase phase)
-        {
-            Encryptions = [phase.Encryption];
-            MinTargets = phase.MinTargets;
-            MaxTargets = phase.MaxTargets;
-            MinTargetsLimited = 1;
-            MaxTargetsLimited = 1;
-            EnemyType = [phase.EType.ToString()];
-            LeaderType = phase.LType.ToString();
-            MinEnemies = phase.MinEnemies;
-            MaxEnemies = phase.MaxEnemies;
-            MaxEnemiesAlive = phase.MaxEnemiesAlive;
-            MaxDirections = phase.MaxDirections;
-            SpawnCadence = phase.SpawnCadence;
-            ScanTime = phase.ScanTime;
-            WarmupTime = phase.WarmUp;
-            IFFUsed = phase.IFFUsed;
-            GrenadeChance = 0;
-            GrenadeType = "Sosiggrenade_Flash";
-            SwarmPlayer = false;
-            DespawnBetweenWaves = true;
-            UsesVFX = true;
-
-            this.phase = phase;
-        }
-
-        public void Validate()
-        {
-            Encryptions ??= [];
-            EnemyType ??= [];
-        }
-
-        public TNH_HoldChallenge.Phase GetPhase()
-        {
-            if (phase == null)
+            //If we shouldn't spawn any targets, we exit out early
+            if ((MaxTargets < 1 && manager.M.EquipmentMode == TNHSetting_EquipmentMode.Spawnlocking) ||
+                (MaxTargetsLimited < 1 && manager.M.EquipmentMode == TNHSetting_EquipmentMode.LimitedAmmo) ||
+                (manager.M.TargetMode == TNHSetting_TargetMode.NoTargets))
             {
-                phase = new TNH_HoldChallenge.Phase();
-                phase.Encryption = Encryptions[0];
-                phase.MinTargets = MinTargets;
-                phase.MaxTargets = MaxTargets;
-                phase.MinEnemies = MinEnemies;
-                phase.MaxEnemies = MaxEnemies;
-                phase.MaxEnemiesAlive = MaxEnemiesAlive;
-                phase.MaxDirections = MaxDirections;
-                phase.SpawnCadence = SpawnCadence;
-                phase.ScanTime = ScanTime;
-                phase.WarmUp = WarmupTime;
-                phase.IFFUsed = IFFUsed;
-
-                //Try to get the necessary SosigEnemyIDs
-                if (LoadedTemplateManager.SosigIDDict.ContainsKey(EnemyType[0]))
-                {
-                    phase.EType = (SosigEnemyID)LoadedTemplateManager.SosigIDDict[EnemyType[0]];
-                }
-                else
-                {
-                    phase.EType = (SosigEnemyID)Enum.Parse(typeof(SosigEnemyID), EnemyType[0]);
-                }
-
-                if (LoadedTemplateManager.SosigIDDict.ContainsKey(LeaderType))
-                {
-                    phase.LType = (SosigEnemyID)LoadedTemplateManager.SosigIDDict[LeaderType];
-                }
-                else
-                {
-                    phase.LType = (SosigEnemyID)Enum.Parse(typeof(SosigEnemyID), LeaderType);
-                }
-
+                EndPhase(manager, character);
+                return;
             }
 
-            return phase;
+            manager.m_state = TNH_HoldPoint.HoldState.Hacking;
+            manager.m_tickDownToFailure = PhaseLength;
+
+            // Make sure we've actually generated the bastards
+            if (manager.m_warpInTargets == new List<GameObject>())
+            {
+                SpawnWarpInMarkers(manager, character);
+            } 
+
+            if (manager.M.TargetMode == TNHSetting_TargetMode.Simple)
+            {
+                manager.M.EnqueueEncryptionLine(TNH_EncryptionType.Static);
+                manager.DeleteAllActiveWarpIns();
+                SpawnEncryptions(manager, true);
+            }
+            else
+            {
+                manager.M.EnqueueEncryptionLine(Encryptions[0]);
+                manager.DeleteAllActiveWarpIns();
+                SpawnEncryptions(manager, false);
+            }
+
+            manager.m_systemNode.SetNodeMode(TNH_HoldPointSystemNode.SystemNodeMode.Indentified);
         }
 
-        public void DelayedInit(bool isCustom)
+        public void SpawnEncryptions(TNH_HoldPoint holdPoint, bool isSimple)
         {
-            if (!isCustom)
+            int numTargets;
+            if (holdPoint.M.EquipmentMode == TNHSetting_EquipmentMode.LimitedAmmo)
             {
-                if (Encryptions[0] == TNH_EncryptionType.Static)
+                numTargets = UnityEngine.Random.Range(MinTargetsLimited, MaxTargetsLimited + 1);
+            }
+            else
+            {
+                numTargets = UnityEngine.Random.Range(MinTargets, MaxTargets + 1);
+            }
+
+            List<FVRObject> encryptions;
+            if (isSimple)
+            {
+                encryptions = [holdPoint.M.GetEncryptionPrefab(TNH_EncryptionType.Static)];
+            }
+            else
+            {
+                encryptions = Encryptions.Select(o => holdPoint.M.GetEncryptionPrefab(o)).ToList();
+            }
+
+
+            for (int i = 0; i < numTargets && i < holdPoint.m_validSpawnPoints.Count; i++)
+            {
+                GameObject gameObject = UnityEngine.Object.Instantiate(encryptions[i % encryptions.Count].GetGameObject(), holdPoint.m_validSpawnPoints[i].position, holdPoint.m_validSpawnPoints[i].rotation);
+                TNH_EncryptionTarget encryption = gameObject.GetComponent<TNH_EncryptionTarget>();
+                encryption.SetHoldPoint(holdPoint);
+                holdPoint.RegisterNewTarget(encryption);
+            }
+        }
+
+        public override void HoldUpdate(TNH_HoldPoint manager, TakeAndHoldCharacter character)
+        {
+            BaseHoldUpdate(manager, character);
+
+            foreach (EnemySpawn spawnWave in Waves)
+            {
+                spawnWave.SpawningRoutine(manager, this, character);
+            }
+            manager.m_isFirstWave = false;
+
+            if (!manager.m_hasPlayedTimeWarning1 && TimeLeft < FirstWarningTime)
+            {
+                manager.m_hasPlayedTimeWarning1 = true;
+                manager.M.EnqueueLine(TNH_VoiceLineID.AI_Encryption_Reminder1);
+            }
+            if (!manager.m_hasPlayedTimeWarning2 && TimeLeft < SecondWarningTime)
+            {
+                manager.m_hasPlayedTimeWarning2 = true;
+                manager.M.EnqueueLine(TNH_VoiceLineID.AI_Encryption_Reminder2);
+                manager.m_numWarnings++;
+            }
+
+            if (PhaseLength > 0f)
+            {
+                manager.m_systemNode.SetDisplayString("FAILURE IN: " + manager.FloatToTime(TimeLeft, "0:00.00"));
+                if (TimeLeft <= 0f)
                 {
-                    MinTargetsLimited = 3;
-                    MaxTargetsLimited = 3;
+                    manager.FailOut();
                 }
+            }
+            else
+            {
+                manager.m_systemNode.SetDisplayString("REMAINING ENCRYPTIONS: " + manager.m_activeTargets.Count);
+            }
+        }
+
+        public override void EndPhase(TNH_HoldPoint manager, TakeAndHoldCharacter character)
+        {
+            string next = BaseEndPhase(manager, character);
+
+            SM.PlayCoreSound(FVRPooledAudioType.GenericLongRange, manager.AUDEvent_HoldWave, manager.transform.position);
+
+            // Check if our upcoming Phase isn't an encryption phase. Sounds cleaner to not use this voice line in this case.
+            if (next != "End" && character.GetCurrentLevel(manager.M.m_curLevel).HoldPhases[manager.m_phaseIndex] is not EncryptionPhase)
+            {
+                manager.M.EnqueueLine(TNH_VoiceLineID.AI_Encryption_Neutralized);
+            }
+            else
+            {
+                manager.SpawnPoints_Targets.Shuffle();
+                // manager.m_validSpawnPoints.Shuffle();
+            }
+            manager.m_validSpawnPoints.Clear();
+            if (character.GetCurrentLevel(manager.M.m_curLevel).HoldPhases[manager.m_phaseIndex] is not WarmupPhase || !(character.GetCurrentLevel(manager.M.m_curLevel).HoldPhases[manager.m_phaseIndex] as WarmupPhase).IsEnd)
+            {
+                manager.M.EnqueueLine(TNH_VoiceLineID.AI_AdvancingToNextSystemLayer);
+            }
+            if (!manager.m_hasBeenDamagedThisPhase)
+            {
+                manager.M.IncrementScoringStat(TNH_Manager.ScoringEvent.HoldWaveCompleteNoDamage, 1);
+            }
+        }
+
+        public override void SpawnWarpInMarkers(TNH_HoldPoint manager, TakeAndHoldCharacter character)
+        {
+            manager.m_validSpawnPoints.Clear();
+            for (int i = 0; i < manager.SpawnPoints_Targets.Count; i++)
+            {
+                if (manager.SpawnPoints_Targets[i] != null)
+                {
+                    TNH_EncryptionSpawnPoint component = manager.SpawnPoints_Targets[i].gameObject.GetComponent<TNH_EncryptionSpawnPoint>();
+                    if (component == null)
+                    {
+                        manager.m_validSpawnPoints.Add(manager.SpawnPoints_Targets[i]);
+                    }
+                    else if (component.AllowedSpawns[(int)Encryptions[manager.m_validSpawnPoints.Count % Encryptions.Count]])
+                    {
+                        manager.m_validSpawnPoints.Add(manager.SpawnPoints_Targets[i]);
+                    }
+                }
+            }
+            if (manager.m_validSpawnPoints.Count <= 0)
+            {
+                manager.m_validSpawnPoints.Add(manager.SpawnPoints_Targets[0]);
+            }
+            manager.m_numTargsToSpawn = UnityEngine.Random.Range(MinTargets, MaxTargets + 1);
+            manager.m_numTargsToSpawn = Mathf.Min(manager.m_numTargsToSpawn, manager.m_validSpawnPoints.Count);
+            if (manager.M.TargetMode == TNHSetting_TargetMode.Simple)
+            {
+                manager.m_numTargsToSpawn = manager.GetMaxTargsInHold();
+                if (manager.m_phaseIndex == 0)
+                {
+                    manager.m_numTargsToSpawn -= 2;
+                }
+                if (manager.m_phaseIndex == 1)
+                {
+                    manager.m_numTargsToSpawn--;
+                }
+                if (manager.m_numTargsToSpawn < 3)
+                {
+                    manager.m_numTargsToSpawn = 3;
+                }
+            }
+            manager.m_validSpawnPoints.Shuffle();
+            for (int j = 0; j < manager.m_numTargsToSpawn; j++)
+            {
+                GameObject gameObject = UnityEngine.Object.Instantiate(manager.M.Prefab_TargetWarpingIn, manager.m_validSpawnPoints[j].position, manager.m_validSpawnPoints[j].rotation);
+                manager.m_warpInTargets.Add(gameObject);
+            }
+        }
+
+    }
+
+    public class HeadhuntPhase : ScanPhase
+    {
+        public int MinTargets;
+        public int MaxTargets;
+        public int MinTargetsLimited;
+        public int MaxTargetsLimited;
+        public List<string> ValidTargets = null;
+
+        public int TargetsLeft = 0;
+
+        public override void BeginPhase(TNH_HoldPoint manager, TakeAndHoldCharacter character)
+        {
+            BaseBeginPhase(manager, character);
+
+            if (manager.M.EquipmentMode == TNHSetting_EquipmentMode.LimitedAmmo)
+            {
+                TargetsLeft = UnityEngine.Random.Range(MinTargetsLimited, MaxTargetsLimited + 1);
+            }
+            else
+            {
+                TargetsLeft = UnityEngine.Random.Range(MinTargets, MaxTargets + 1);
+            }
+
+            manager.m_state = TNH_HoldPoint.HoldState.Hacking;
+            manager.m_tickDownToFailure = PhaseLength;
+
+            manager.m_systemNode.SetNodeMode(TNH_HoldPointSystemNode.SystemNodeMode.Indentified);
+        }
+
+        public override void HoldUpdate(TNH_HoldPoint manager, TakeAndHoldCharacter character)
+        {
+            BaseHoldUpdate(manager, character);
+
+            foreach (EnemySpawn spawnWave in Waves)
+            {
+                List<Sosig> spawnedSosigs = spawnWave.SpawningRoutine(manager, this, character);
+
+                foreach (Sosig sosig in spawnedSosigs)
+                {
+                    SosigKillTester killTester = sosig.GetComponent<SosigKillTester>();
+                    if (ValidTargets == null || ValidTargets.Contains(killTester.SosigID))
+                    {
+                        killTester.InvokeOnKill += delegate { TargetsLeft -= 1; };
+                    }
+                }
+            }
+            manager.m_isFirstWave = false;
+
+            if (PhaseLength > 0f)
+            {
+                manager.m_systemNode.SetDisplayString("FAILURE IN: " + manager.FloatToTime(TimeLeft, "0:00.00"));
+                if (TimeLeft <= 0f)
+                {
+                    manager.FailOut();
+                }
+            }
+            else
+            {
+                manager.m_systemNode.SetDisplayString("REMAINING ENEMIES: " + TargetsLeft);
+            }
+        }
+
+        public override void EndPhase(TNH_HoldPoint manager, TakeAndHoldCharacter character)
+        {
+            string next = BaseEndPhase(manager, character);
+
+            SM.PlayCoreSound(FVRPooledAudioType.GenericLongRange, manager.AUDEvent_HoldWave, manager.transform.position);
+
+            // Check if our upcoming Phase isn't an encryption phase. Sounds cleaner to not use this voice line in this case.
+            if (next != "End" && character.GetCurrentLevel(manager.M.m_curLevel).HoldPhases[manager.m_phaseIndex] is not EncryptionPhase)
+            {
+                manager.M.EnqueueLine(TNH_VoiceLineID.AI_Encryption_Neutralized);
+            }
+            else
+            {
+                manager.SpawnPoints_Targets.Shuffle();
+                // manager.m_validSpawnPoints.Shuffle();
+            }
+            manager.m_validSpawnPoints.Clear();
+            if (character.GetCurrentLevel(manager.M.m_curLevel).HoldPhases[manager.m_phaseIndex] is not WarmupPhase || !(character.GetCurrentLevel(manager.M.m_curLevel).HoldPhases[manager.m_phaseIndex] as WarmupPhase).IsEnd)
+            {
+                manager.M.EnqueueLine(TNH_VoiceLineID.AI_AdvancingToNextSystemLayer);
+            }
+            if (!manager.m_hasBeenDamagedThisPhase)
+            {
+                manager.M.IncrementScoringStat(TNH_Manager.ScoringEvent.HoldWaveCompleteNoDamage, 1);
             }
         }
     }

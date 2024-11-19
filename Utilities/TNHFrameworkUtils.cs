@@ -221,7 +221,7 @@ namespace TNHFramework.Utilities
                         serializerBuilder.WithIndentedSequences();
                         foreach (KeyValuePair<string, Type> thing in TNHFramework.Serializables)
                         {
-                            serializerBuilder.WithTagMapping(thing.Key, thing.Value);
+                            serializerBuilder.WithTagMapping("!" + thing.Key, thing.Value);
                         }
                         var serializer = serializerBuilder.Build();
                         string characterString = serializer.Serialize(charDef);

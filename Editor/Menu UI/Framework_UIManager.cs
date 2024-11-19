@@ -5,6 +5,7 @@ using UnityEngine.UI;
 using FistVR;
 using HarmonyLib;
 using System.Linq;
+using TNHFramework.ObjectTemplates;
 
 namespace TNHFramework.Editor
 {
@@ -15,6 +16,8 @@ namespace TNHFramework.Editor
         public static Framework_UIManager CurrentUIManager;
         public static TNHBaseManager CurrentManager;
         public static List<TNHBaseManager> AllManagers;
+
+        public static BaseCustomCharacter Character;
 
         [Serializable]
         public class LevelData

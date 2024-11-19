@@ -1,55 +1,85 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using HarmonyLib;
+﻿using System.Collections.Generic;
 using FistVR;
-using UnityEngine;
+using HarmonyLib;
 using TNHFramework.ObjectTemplates;
+using TNHFramework.Utilities;
+using UnityEngine;
 
 namespace TNHFramework.Patches
 {
     [HarmonyPatch(typeof(TNH_HoldPoint))]
     public class HoldPatches
     {
-        [HarmonyPatch("CompletePhase")]
+        [HarmonyPatch("BeginHoldChallenge")]
         [HarmonyPrefix]
-        public static bool NextPhasePatch(TNH_HoldPoint __instance)
+        public static bool BeginHoldPatch(TNH_HoldPoint __instance)
         {
             TakeAndHoldCharacter character = LoadedTemplateManager.LoadedCharactersDict[__instance.M.C];
-            if (character.GetCurrentLevel(__instance.M.m_curLevel).HoldPhases[__instance.m_phaseIndex].DespawnBetweenWaves)
+
+            List<Phase> currentPhases = character.GetCurrentLevel(__instance.M.m_curLevel).HoldPhases;
+            List<Phase> validPhases = [];
+
+            foreach (Phase phase in currentPhases)
             {
-                __instance.DeletionBurst();
-                __instance.M.ClearMiscEnemies();
-                UnityEngine.Object.Instantiate(__instance.VFX_HoldWave, __instance.m_systemNode.NodeCenter.position, __instance.m_systemNode.NodeCenter.rotation);
-            }
-            if (character.GetCurrentLevel(__instance.M.m_curLevel).HoldPhases[__instance.m_phaseIndex].UsesVFX)
-            {
-                SM.PlayCoreSound(FVRPooledAudioType.GenericLongRange, __instance.AUDEvent_HoldWave, __instance.transform.position);
-                __instance.M.EnqueueLine(TNH_VoiceLineID.AI_Encryption_Neutralized);
-            }
-            __instance.M.IncrementScoringStat(TNH_Manager.ScoringEvent.HoldDecisecondsRemaining, (int)(__instance.m_tickDownToFailure * 10f));
-            __instance.m_phaseIndex++;
-            if (character.GetCurrentLevel(__instance.M.m_curLevel).HoldPhases.Count > __instance.m_phaseIndex &&
-                character.GetCurrentLevel(__instance.M.m_curLevel).HoldPhases[__instance.m_phaseIndex].ScanTime == 0 && 
-                character.GetCurrentLevel(__instance.M.m_curLevel).HoldPhases[__instance.m_phaseIndex].WarmupTime == 0)
-            {
-                __instance.SpawnPoints_Targets.Shuffle();
-                __instance.m_validSpawnPoints.Shuffle();
-                __instance.IdentifyEncryption();
-            }
-            else
-            {
-                __instance.m_state = TNH_HoldPoint.HoldState.Transition;
-                __instance.m_tickDownTransition = 5f;
-                __instance.m_systemNode.SetNodeMode(TNH_HoldPointSystemNode.SystemNodeMode.Hacking);
-            }
-            __instance.LowerAllBarriers();
-            if (!__instance.m_hasBeenDamagedThisPhase)
-            {
-                __instance.M.IncrementScoringStat(TNH_Manager.ScoringEvent.HoldWaveCompleteNoDamage, 1);
+                if (phase.Keys.Contains("Start"))
+                {
+                    validPhases.Add(phase);
+                }
             }
 
+            Phase chosenPhase = validPhases.GetRandom();
+
+            __instance.m_phaseIndex = currentPhases.IndexOf(chosenPhase);
+            character.GetCurrentLevel(__instance.M.m_curLevel).HoldPhases[__instance.m_phaseIndex].BeginHold(__instance, character);
+
+            return false;
+        }
+
+        [HarmonyPatch("Update")]
+        [HarmonyPrefix]
+        public static bool UpdatePatch(TNH_HoldPoint __instance)
+        {
+            if (!__instance.m_isInHold)
+            {
+                return false;
+            }
+            __instance.CyclePointAttack();
+
+            TakeAndHoldCharacter character = LoadedTemplateManager.LoadedCharactersDict[__instance.M.C];
+
+            character.GetCurrentLevel(__instance.M.m_curLevel).HoldPhases[__instance.m_phaseIndex].HoldUpdate(__instance, character);
+
+            return false;
+        }
+
+
+        [HarmonyPatch("TargetDestroyed")]
+        [HarmonyPrefix]
+        public static bool TargetDestroyedPatch(TNH_HoldPoint __instance, TNH_EncryptionTarget t)
+        {
+            __instance.m_activeTargets.Remove(t);
+            if (__instance.m_activeTargets.Count <= 0)
+            {
+                TakeAndHoldCharacter character = LoadedTemplateManager.LoadedCharactersDict[__instance.M.C];
+                character.GetCurrentLevel(__instance.M.m_curLevel).HoldPhases[__instance.m_phaseIndex].EndPhase(__instance, character);
+            }
+
+            return false;
+        }
+
+        [HarmonyPatch("GetMaxTargsInHold")]
+        [HarmonyPrefix]
+        public static bool GetMaxTargsPatch(TNH_HoldPoint __instance, ref int __result)
+        {
+            TakeAndHoldCharacter character = LoadedTemplateManager.LoadedCharactersDict[__instance.M.C];
+            
+            int num = 0;
+            for (int i = 0; i < character.GetCurrentLevel(__instance.M.m_curLevel).HoldPhases.Count; i++)
+            {
+                num = Mathf.Max(num, (character.GetCurrentLevel(__instance.M.m_curLevel).HoldPhases[i] as EncryptionPhase).MaxTargets);
+            }
+
+            __result = num;
             return false;
         }
     }

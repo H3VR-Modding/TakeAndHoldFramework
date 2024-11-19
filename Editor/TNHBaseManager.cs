@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using FistVR;
+using TNHFramework.ObjectTemplates;
 using UnityEngine;
 using UnityEngine.Events;
 
@@ -9,6 +10,7 @@ namespace TNHFramework.Editor
     public abstract class TNHBaseManager
     {
         public static Framework_UIManager cUIManager = null;
+        public static BaseCustomCharacter Character;
         /*
         - These determine the options and characters your mode will use.
         - Classic is the default, it means it will use the same type of characters and options as classic Take & Hold. These should probably always be changed in your manager's Init() method.
@@ -46,6 +48,8 @@ namespace TNHFramework.Editor
             public GameObject Prefab = prefab;
             public Dictionary<string, Action> Options = options;
         }
+
+        public abstract bool DelayedInit(TNH_Manager manager);
     }
 
     public class TNHManagerClassic : TNHBaseManager
@@ -151,6 +155,11 @@ namespace TNHFramework.Editor
                 default:
                     break;
             }
+        }
+
+        public override bool DelayedInit(TNH_Manager manager)
+        {
+            return true;
         }
     }
 }
