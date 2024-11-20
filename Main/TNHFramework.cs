@@ -108,8 +108,8 @@ namespace TNHFramework
         {
             FrameworkLoaders Loader = new();
 
-            ctx.Loaders.Add("tnhchar", Loader.LoadChar);
-            ctx.Loaders.Add("framechar", Loader.TNHLoadChar);
+            ctx.Loaders.Add("tnhchar", Loader.TNHLoadChar);
+            ctx.Loaders.Add("framechar", Loader.LoadChar);
             ctx.Loaders.Add("tnhsosig", Loader.LoadSosig);
             ctx.Loaders.Add("tnhvaultgun", Loader.LoadVaultFile);
         }

@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using TNHFramework.ObjectTemplates;
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace TNHFramework.Main.ObjectWrappers
 {

@@ -1,15 +1,10 @@
-﻿using FistVR;
-using HarmonyLib;
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Diagnostics.Eventing.Reader;
-using System.IO;
-using System.Linq;
-using System.Net;
 using System.Reflection.Emit;
-using System.Text;
+using CustomSosigLoader;
+using FistVR;
+using HarmonyLib;
 using TNHFramework.ObjectTemplates;
 using TNHFramework.Utilities;
 using UnityEngine;
@@ -730,7 +725,19 @@ namespace TNHFramework.Patches
             for (int i = 0; i < level.SupplyChallenge.NumGuards && i < point.SpawnPoints_Sosigs_Defense.Count; i++)
             {
                 Transform transform = point.SpawnPoints_Sosigs_Defense[i];
-                SosigEnemyTemplate template = ManagerSingleton<IM>.Instance.odicSosigObjsByID[level.SupplyChallenge.GetTakeChallenge().GID];
+                SosigEnemyTemplate template = null;
+                foreach (KeyValuePair<int, Custom_SosigEnemyTemplate> pain in CustomSosigLoaderPlugin.customSosigs)
+                {
+                    if (pain.Key == (int)level.SupplyChallenge.GetTakeChallenge().GID)
+                    {
+                        template = pain.Value.Initialize();
+                        break;
+                    }
+                }
+                if (template == null)
+                {
+                    template = ManagerSingleton<IM>.Instance.odicSosigObjsByID[level.SupplyChallenge.GetTakeChallenge().GID];
+                }
 
                 Sosig enemy = PatrolPatches.SpawnEnemy(template, LoadedTemplateManager.LoadedCharactersDict[point.M.C], transform, point.M, level.SupplyChallenge.IFFUsed, false, transform.position, true);
 
@@ -1048,7 +1055,19 @@ namespace TNHFramework.Patches
             for (int i = 0; i < __instance.T.NumGuards && i < __instance.SpawnPoints_Sosigs_Defense.Count; i++)
             {
                 Transform transform = __instance.SpawnPoints_Sosigs_Defense[i];
-                SosigEnemyTemplate template = ManagerSingleton<IM>.Instance.odicSosigObjsByID[__instance.T.GID];
+                SosigEnemyTemplate template = null;
+                foreach (KeyValuePair<int, Custom_SosigEnemyTemplate> pain in CustomSosigLoaderPlugin.customSosigs)
+                {
+                    if (pain.Key == (int)__instance.T.GID)
+                    {
+                        template = pain.Value.Initialize();
+                        break;
+                    }
+                }
+                if (template == null)
+                {
+                    template = ManagerSingleton<IM>.Instance.odicSosigObjsByID[__instance.T.GID];
+                }
 
                 Sosig enemy = PatrolPatches.SpawnEnemy(template, LoadedTemplateManager.LoadedCharactersDict[__instance.M.C], transform, __instance.M, __instance.T.IFFUsed, false, transform.position, true);
 
@@ -1072,7 +1091,19 @@ namespace TNHFramework.Patches
             {
                 Transform transform = __instance.SpawnPoints_Sosigs_Defense[i];
                 //Debug.Log("Take challenge sosig ID : " + __instance.T.GID);
-                SosigEnemyTemplate template = ManagerSingleton<IM>.Instance.odicSosigObjsByID[__instance.T.GID];
+                SosigEnemyTemplate template = null;
+                foreach (KeyValuePair<int, Custom_SosigEnemyTemplate> pain in CustomSosigLoaderPlugin.customSosigs)
+                {
+                    if (pain.Key == (int)__instance.T.GID)
+                    {
+                        template = pain.Value.Initialize();
+                        break;
+                    }
+                }
+                if (template == null)
+                {
+                    template = ManagerSingleton<IM>.Instance.odicSosigObjsByID[__instance.T.GID];
+                }
 
                 Sosig enemy = PatrolPatches.SpawnEnemy(template, LoadedTemplateManager.LoadedCharactersDict[__instance.M.C], transform, __instance.M, __instance.T.IFFUsed, false, transform.position, true);
 

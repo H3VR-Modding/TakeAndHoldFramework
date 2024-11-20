@@ -1,20 +1,15 @@
-﻿using ADepIn;
-using BepInEx.Logging;
-using FistVR;
-using JetBrains.Annotations;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Security.Cryptography;
+using ADepIn;
+using CustomSosigLoader;
+using FistVR;
 using TNHFramework.Main.ObjectWrappers;
-using TNHFramework.ObjectTemplates.V1;
 using TNHFramework.Patches;
 using TNHFramework.Utilities;
 using UnityEngine;
 using Valve.Newtonsoft.Json;
 using YamlDotNet.Serialization;
-using static FistVR.TNH_HoldChallenge;
 
 namespace TNHFramework.ObjectTemplates
 {
@@ -42,7 +37,6 @@ namespace TNHFramework.ObjectTemplates
         public List<MagazineBlacklistEntry> MagazineBlacklist = [];
 
         public EquipmentGroup RequireSightTable;
-        public StartingPoint StartRoom;
         public LoadoutEntry PrimaryWeapon;
         public LoadoutEntry SecondaryWeapon;
         public LoadoutEntry TertiaryWeapon;
@@ -2336,7 +2330,20 @@ namespace TNHFramework.ObjectTemplates
 
                 //Set first enemy to be spawned as leader
                 string selectedID = LeaderType;
-                SosigEnemyTemplate enemyTemplate = ManagerSingleton<IM>.Instance.odicSosigObjsByID[(SosigEnemyID)LoadedTemplateManager.SosigIDDict[selectedID]];
+                SosigEnemyTemplate enemyTemplate = null;
+                foreach (KeyValuePair<int, Custom_SosigEnemyTemplate> pain in CustomSosigLoaderPlugin.customSosigs)
+                {
+                    if (pain.Value.DisplayName == selectedID)
+                    {
+                        enemyTemplate = pain.Value.Initialize();
+                        break;
+                    }
+                }
+                if (enemyTemplate == null)
+                {
+                    enemyTemplate = ManagerSingleton<IM>.Instance.odicSosigObjsByID[(SosigEnemyID)LoadedTemplateManager.SosigIDDict[selectedID]];
+                }
+                
                 int enemiesToSpawn = UnityEngine.Random.Range(MinEnemies, MaxEnemies + 1);
 
                 TNHFrameworkLogger.Log($"Spawning {enemiesToSpawn} hold guards (Phase {phaseIndex})", TNHFrameworkLogger.LogType.TNH);
@@ -2371,7 +2378,18 @@ namespace TNHFramework.ObjectTemplates
 
                     //At this point, the leader has been spawned, so always set enemy to be regulars
                     selectedID = EnemyType.GetRandom();
-                    enemyTemplate = ManagerSingleton<IM>.Instance.odicSosigObjsByID[(SosigEnemyID)LoadedTemplateManager.SosigIDDict[selectedID]];
+                    enemyTemplate = null;
+                    foreach (KeyValuePair<int, Custom_SosigEnemyTemplate> pain in CustomSosigLoaderPlugin.customSosigs)
+                    {
+                        if (pain.Value.DisplayName == selectedID)
+                        {
+                            enemyTemplate = pain.Value.Initialize();
+                        }
+                    }
+                    if (enemyTemplate == null)
+                    {
+                        enemyTemplate = ManagerSingleton<IM>.Instance.odicSosigObjsByID[(SosigEnemyID)LoadedTemplateManager.SosigIDDict[selectedID]];
+                    }
                     sosigsSpawned += 1;
 
                     vectorIndex += 1;
