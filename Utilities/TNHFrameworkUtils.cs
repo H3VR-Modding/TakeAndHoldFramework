@@ -81,7 +81,7 @@ namespace TNHFramework.Utilities
                 {
                     sw.WriteLine("#Available Sosig IDs for spawning");
 
-                    List<String> sosigList = [.. LoadedTemplateManager.SosigIDDict.Keys];
+                    List<string> sosigList = [.. LoadedTemplateManager.SosigIDDict.Keys];
                     sosigList.Sort();
 
                     foreach (string ID in sosigList)

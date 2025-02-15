@@ -392,6 +392,7 @@ namespace TNHFramework.ObjectTemplates
             {
                 TNHFrameworkLogger.LogWarning("Primary starting weapon had no pools to spawn from, and will not spawn equipment!");
                 character.Has_Weapon_Primary = false;
+                PrimaryWeapon = null;
             }
 
             TNHFrameworkLogger.Log("Init of Secondary Weapon", TNHFrameworkLogger.LogType.Character);
@@ -399,6 +400,7 @@ namespace TNHFramework.ObjectTemplates
             {
                 TNHFrameworkLogger.LogWarning("Secondary starting weapon had no pools to spawn from, and will not spawn equipment!");
                 character.Has_Weapon_Secondary = false;
+                SecondaryWeapon = null;
             }
 
             TNHFrameworkLogger.Log("Init of Tertiary Weapon", TNHFrameworkLogger.LogType.Character);
@@ -406,6 +408,7 @@ namespace TNHFramework.ObjectTemplates
             {
                 TNHFrameworkLogger.LogWarning("Tertiary starting weapon had no pools to spawn from, and will not spawn equipment!");
                 character.Has_Weapon_Tertiary = false;
+                TertiaryWeapon = null;
             }
 
             TNHFrameworkLogger.Log("Init of Primary Item", TNHFrameworkLogger.LogType.Character);
@@ -413,6 +416,7 @@ namespace TNHFramework.ObjectTemplates
             {
                 TNHFrameworkLogger.LogWarning("Primary starting item had no pools to spawn from, and will not spawn equipment!");
                 character.Has_Item_Primary = false;
+                PrimaryItem = null;
             }
 
             TNHFrameworkLogger.Log("Init of Secondary Item", TNHFrameworkLogger.LogType.Character);
@@ -420,6 +424,7 @@ namespace TNHFramework.ObjectTemplates
             {
                 TNHFrameworkLogger.LogWarning("Secondary starting item had no pools to spawn from, and will not spawn equipment!");
                 character.Has_Item_Secondary = false;
+                SecondaryItem = null;
             }
 
             TNHFrameworkLogger.Log("Init of Tertiary Item", TNHFrameworkLogger.LogType.Character);
@@ -427,6 +432,7 @@ namespace TNHFramework.ObjectTemplates
             {
                 TNHFrameworkLogger.LogWarning("Tertiary starting item had no pools to spawn from, and will not spawn equipment!");
                 character.Has_Item_Tertiary = false;
+                TertiaryItem = null;
             }
 
             TNHFrameworkLogger.Log("Init of Shield", TNHFrameworkLogger.LogType.Character);
@@ -434,6 +440,7 @@ namespace TNHFramework.ObjectTemplates
             {
                 TNHFrameworkLogger.LogWarning("Shield starting item had no pools to spawn from, and will not spawn equipment!");
                 character.Has_Item_Shield = false;
+                Shield = null;
             }
 
             TNHFrameworkLogger.Log("Init of required sights table", TNHFrameworkLogger.LogType.Character);

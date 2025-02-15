@@ -64,6 +64,13 @@ namespace TNHFramework.ObjectTemplates.V1
 
         public CustomCharacter()
         {
+            HasPrimaryWeapon = true;
+            HasSecondaryWeapon = true;
+            HasTertiaryWeapon = true;
+            HasPrimaryItem = true;
+            HasSecondaryItem = true;
+            HasTertiaryItem = true;
+            HasShield = true;
             ValidAmmoEras = new List<TagEra>();
             ValidAmmoSets = new List<TagSet>();
             GlobalAmmoBlacklist = new List<string>();

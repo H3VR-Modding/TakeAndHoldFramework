@@ -84,11 +84,12 @@
 - Remove dead sosigs BEFORE checking squads, instead of during the check itself.
 - Changed spawning method of vault guns to hopefully load them a little quicker.
 
-## [0.1.6] - 2025-XX-XX
+## [0.2.1] - 2025-XX-XX
 
 - Fixed patrol algorithm from skipping patrol types occassionally.
 - Fixed the case where the ammo blacklist removes all compatible rounds. It will now leave at least one type of round for each gun at the ammo spawner.
 - Fixed panels (ammo reloader, etc.) sometimes breaking when being used a lot.
 - Fixed the case where the secondary or tertiary starting item spawn point is missing from the map. This caused some characters to not work on certain maps (e.g. Aporkalypse Now).
+- Fixed compatibility with Ammo Pouch mod.
 - Respect the HasPrimaryWeapon, HasSecondaryWeapon, etc. booleans. Some mod characters have an equipment pool populated, but disabled via boolean. This makes it consistent with old behavior.
 - Don't play the announcer line to advance to the next node after finishing the last hold (vanilla bug).

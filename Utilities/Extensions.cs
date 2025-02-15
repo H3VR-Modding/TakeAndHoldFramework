@@ -14,7 +14,7 @@ namespace TNHFramework.Utilities
         {
             if (list.Count < 1)
             {
-                TNHFrameworkLogger.LogWarning("GetRandom() was called on an empty list!");
+                TNHFrameworkLogger.LogWarning($"GetRandom() was called on an empty list of type [{typeof(T)}]!");
                 return default;
             }
             
